@@ -15,7 +15,7 @@ const WORKSPACES = [
 ];
 
 const WORKSPACE_SUBDIRS = {
-  "00-系统": ["规范", "Skills", "Agent", "Schema", "运行时", "审计"],
+  "00-系统": ["规范", "Skills", "Agent", "运行时"],
   "01-收件箱": ["网页剪藏", "临时想法", "待整理", "素材暂存"],
   "02-日记": ["每日", "工作日志", "反思", "复盘", "人际事件"],
   "03-知识": ["AI学科", "AI工具学习", "AI工程", "AI论文", "Harness工程", "上下文工程", "书籍笔记", "多Agent协作开发", "开发", "开发工具", "开源项目蒸馏", "认知神经科学"],
@@ -72,7 +72,7 @@ const SUBSYSTEM_CONTRACTS = {
     workspace: "04-项目",
     name: "Project Runtime",
     skill: "workspace-projects",
-    allowedStatus: ["active", "ready", "archived"],
+    allowedStatus: ["draft", "active", "archived"],
     requiredFiles: ["WORKSPACE.md"],
     requiredDirs: WORKSPACE_SUBDIRS["04-项目"],
   },
@@ -88,7 +88,7 @@ const SUBSYSTEM_CONTRACTS = {
     workspace: "06-输出",
     name: "Publishing Pipeline",
     skill: "workspace-outputs",
-    allowedStatus: ["draft", "ready", "published", "archived"],
+    allowedStatus: ["draft", "review", "published", "archived"],
     requiredFiles: ["WORKSPACE.md"],
     requiredDirs: WORKSPACE_SUBDIRS["06-输出"],
   },
@@ -174,7 +174,7 @@ const INTENT_ROUTES = [
     workspace: "06-输出",
     subdir: "口播稿",
     type: "voiceover",
-    topic: "creation",
+    topic: "writing",
     status: "draft",
     reason: "意图包含口播/短视频文案语义，路由到口播稿。",
   },
@@ -194,7 +194,7 @@ const INTENT_ROUTES = [
     workspace: "02-日记",
     subdir: "人际事件/事件",
     type: "event",
-    topic: "lifeos",
+    topic: "life",
     status: "active",
     reason: "意图包含人际关系、人物或事件复盘语义，路由到 LifeOS 人际事件。",
   },
@@ -514,6 +514,10 @@ function initVault(vaultRoot, args = {}) {
   files += writeIfMissing(path.join(vaultRoot, "AGENTS.md"), "# ThirdSpace Agent 入口\n\n读取 `.thirdspace/workspace-index.yaml` 后按当前工作区规范执行。\n") ? 1 : 0;
   files += writeIfMissing(path.join(vaultRoot, "CLAUDE.md"), "# ThirdSpace Claude Code 入口\n\n先读 `AGENTS.md`、`.thirdspace/workspace-index.yaml` 和 `.thirdspace/schema/taxonomy.yaml`，再读取当前工作区的 `WORKSPACE.md`。\n") ? 1 : 0;
   files += writeIfMissing(path.join(vaultRoot, "README.md"), "# ThirdSpace 知识库\n\n中文管理、扁平工作区、Agent-native 的知识库。\n") ? 1 : 0;
+  files += writeIfMissing(path.join(vaultRoot, "00-系统", "Agent", "README.md"), "# ThirdSpace Agent 运行入口\n\n从 vault 根目录的 `AGENTS.md` 开始，按 `.thirdspace/workspace-index.yaml` 路由并读取 canonical schema。\n") ? 1 : 0;
+  const emptyPeopleStore = `${JSON.stringify({ version: "1.0", people: [] }, null, 2)}\n`;
+  files += writeIfMissing(path.join(vaultRoot, "05-资源", "人物档案", "people.json"), emptyPeopleStore) ? 1 : 0;
+  files += writeIfMissing(path.join(vaultRoot, ".thirdspace", "data", "lifeos", "people.json"), emptyPeopleStore) ? 1 : 0;
   files += writeIfMissing(path.join(vaultRoot, ".thirdspace", "workspace-index.yaml"), renderWorkspaceIndex(vaultRoot)) ? 1 : 0;
   const sourceSchemaRoot = path.resolve(path.dirname(scriptFilePath()), "..", "..", "..", "..", ".thirdspace", "schema");
   for (const schema of ["taxonomy.yaml", "frontmatter.yaml", "subsystems.yaml", "event-capture.yaml", "workspace-tools.yaml"]) {
@@ -597,12 +601,12 @@ function renderWorkspaceToolsSchema() {
     '  level_1_workspace: ["<workspace>/WORKSPACE.md", "<workspace-skill>/SKILL.md"]',
     '  level_2_domain: "Only load domain skills when the intent or file type requires them."',
     "workspaces:",
-    '  "01-收件箱": { workspace_skill: "workspace-inbox", domain_skills: ["knowledge", "video-collector"], tools: ["route-create", "migrate-flux-intake", "build-intake-queue"], archived_legacy_sources: ["flux/intake", "flux/videos"] }',
+    '  "01-收件箱": { workspace_skill: "workspace-inbox", domain_skills: [], tools: ["route-create", "migrate-flux-intake", "build-intake-queue"], archived_legacy_sources: ["flux/intake", "flux/videos"] }',
     '  "02-日记": { workspace_skill: "workspace-journal", domain_skills: ["worklog", "reflect", "review", "lifeos"], legacy_sources: ["space/crafted/work"], archived_legacy_sources: ["space/crafted/lifeos"] }',
-    '  "03-知识": { workspace_skill: "workspace-knowledge", domain_skills: ["knowledge", "harness-architect", "obsidian-canvas"] }',
-    '  "04-项目": { workspace_skill: "workspace-projects", domain_skills: ["mvp-project", "ship-learn-next", "creation-tracking"] }',
-    '  "05-资源": { workspace_skill: "workspace-resources", domain_skills: ["lifeos", "video-analyzer", "mkd2pic"], legacy_sources: ["space/templates", "space/workflow"], archived_legacy_sources: ["flux/intake/assets", "flux/lifeos/people.json"] }',
-    '  "06-输出": { workspace_skill: "workspace-outputs", domain_skills: ["article", "video-analyzer", "huashu-slides"] }',
+    '  "03-知识": { workspace_skill: "workspace-knowledge", domain_skills: ["knowledge"] }',
+    '  "04-项目": { workspace_skill: "workspace-projects", domain_skills: [] }',
+    '  "05-资源": { workspace_skill: "workspace-resources", domain_skills: ["lifeos"], legacy_sources: ["space/templates", "space/workflow"], archived_legacy_sources: ["flux/intake/assets", "flux/lifeos/people.json"] }',
+    '  "06-输出": { workspace_skill: "workspace-outputs", domain_skills: [] }',
     '  "99-归档": { workspace_skill: "workspace-archive", domain_skills: [] }',
     "",
   ].join("\n");
@@ -1045,7 +1049,7 @@ function ensureWorklog(args = {}) {
     created: parts.timestamp,
     modified: parts.timestamp,
     tags: ["worklog", "work", "event-capture"],
-    source: "thirdspace-vault",
+    source: "agent",
     status: "active",
   });
   const body = [
@@ -1493,6 +1497,56 @@ function skillPathFor(vaultRoot, skillName) {
   return path.join(vaultRoot, "00-系统", "Skills", skillName, "SKILL.md");
 }
 
+function yamlTopLevelList(text, key) {
+  const lines = text.split("\n");
+  const start = lines.findIndex((line) => line === `${key}:`);
+  if (start === -1) return [];
+  const values = [];
+  for (const line of lines.slice(start + 1)) {
+    const match = line.match(/^  -\s+([^#]+?)(?:\s+#.*)?$/);
+    if (!match) break;
+    values.push(match[1].trim().replace(/^['"]|['"]$/g, ""));
+  }
+  return values;
+}
+
+function yamlInlineValues(text, key) {
+  return [...text.matchAll(new RegExp(`^\\s+${key}:\\s*\\[([^\\]]*)\\]`, "gm"))]
+    .flatMap((match) => match[1].split(",").map((value) => value.trim().replace(/^['"]|['"]$/g, "")).filter(Boolean));
+}
+
+function yamlSubsystemContracts(text) {
+  const contracts = new Map();
+  let current;
+  for (const line of text.split("\n")) {
+    const workspace = line.match(/^  "([^"]+)":\s*$/);
+    if (workspace) {
+      current = { allowedTypes: [], statuses: [] };
+      contracts.set(workspace[1], current);
+      continue;
+    }
+    if (!current) continue;
+    const field = line.match(/^    (allowed_types|status_machine):\s*\[([^\]]*)\]/);
+    if (!field) continue;
+    const values = field[2].split(",").map((value) => value.trim().replace(/^['"]|['"]$/g, "")).filter(Boolean);
+    if (field[1] === "allowed_types") current.allowedTypes = values;
+    else current.statuses = values;
+  }
+  return contracts;
+}
+
+function contentMarkdownFiles(vaultRoot) {
+  return WORKSPACES.flatMap(([, workspace]) => {
+    const root = path.join(vaultRoot, workspace);
+    if (!fs.existsSync(root)) return [];
+    return walkFiles(root, 20).filter((file) => {
+      if (!file.endsWith(".md")) return false;
+      if (file.includes(`${path.sep}00-系统${path.sep}Skills${path.sep}`)) return false;
+      return !["WORKSPACE.md", "AGENTS.md", "CLAUDE.md", "README.md", "SKILL.md"].includes(path.basename(file));
+    });
+  });
+}
+
 function auditSkillLocations(vaultRoot, args = {}) {
   const canonicalRoot = skillRoot(vaultRoot);
   const checks = [];
@@ -1565,6 +1619,84 @@ function auditSubsystems(vaultRoot, args = {}) {
   for (const relative of schemaFiles) {
     const full = path.join(vaultRoot, relative);
     checks.push({ severity: fs.existsSync(full) ? "ok" : "error", subsystem: "root", path: relative, message: fs.existsSync(full) ? "control file exists" : "control file missing" });
+  }
+
+  const addSemanticError = (subsystem, relativePath, message) => {
+    const item = { severity: "error", subsystem, path: relativePath, message };
+    checks.push(item);
+    maintenanceItems.push(item);
+  };
+  const taxonomyPath = path.join(vaultRoot, ".thirdspace/schema/taxonomy.yaml");
+  const frontmatterPath = path.join(vaultRoot, ".thirdspace/schema/frontmatter.yaml");
+  const subsystemsPath = path.join(vaultRoot, ".thirdspace/schema/subsystems.yaml");
+  const toolsPath = path.join(vaultRoot, ".thirdspace/schema/workspace-tools.yaml");
+  if ([taxonomyPath, frontmatterPath, subsystemsPath, toolsPath].every(fs.existsSync)) {
+    const taxonomy = fs.readFileSync(taxonomyPath, "utf8");
+    const frontmatterSchema = fs.readFileSync(frontmatterPath, "utf8");
+    const subsystemsSchema = fs.readFileSync(subsystemsPath, "utf8");
+    const toolsSchema = fs.readFileSync(toolsPath, "utf8");
+    const types = new Set(yamlTopLevelList(taxonomy, "type_values"));
+    const topics = new Set(yamlTopLevelList(taxonomy, "topic_values"));
+    const statuses = new Set(yamlTopLevelList(frontmatterSchema, "status_values"));
+    const sources = new Set(yamlTopLevelList(frontmatterSchema, "source_values"));
+    const subsystemContracts = yamlSubsystemContracts(subsystemsSchema);
+    const projectTypes = new Set(yamlInlineValues(frontmatterSchema, "project_type_values"));
+    const projectCategories = new Set(yamlInlineValues(frontmatterSchema, "project_category_values"));
+    const projectStages = new Set(yamlInlineValues(frontmatterSchema, "stage_values"));
+    const resourceKinds = new Set(yamlInlineValues(frontmatterSchema, "resource_kind_values"));
+    const recordKinds = new Set(yamlInlineValues(frontmatterSchema, "record_kind_values"));
+    for (const type of yamlInlineValues(subsystemsSchema, "allowed_types")) {
+      if (type !== "any" && !types.has(type)) addSemanticError("schema", ".thirdspace/schema/subsystems.yaml", `unknown allowed type: ${type}`);
+    }
+    for (const status of yamlInlineValues(subsystemsSchema, "status_machine")) {
+      if (!statuses.has(status)) addSemanticError("schema", ".thirdspace/schema/subsystems.yaml", `unknown subsystem status: ${status}`);
+    }
+    const configuredSkills = [...toolsSchema.matchAll(/^\s+(?:primary|skill):\s+([^\s#]+)$/gm)].map((match) => match[1].replace(/^['"]|['"]$/g, ""));
+    for (const skill of configuredSkills) {
+      if (!fs.existsSync(skillPathFor(vaultRoot, skill))) addSemanticError("schema", ".thirdspace/schema/workspace-tools.yaml", `configured skill missing: ${skill}`);
+    }
+    const requiredFields = yamlTopLevelList(frontmatterSchema, "required_fields");
+    for (const file of contentMarkdownFiles(vaultRoot)) {
+      const relative = path.relative(vaultRoot, file);
+      const { meta } = parseFrontmatter(fs.readFileSync(file, "utf8"));
+      if (!Object.keys(meta).length) continue;
+      const missing = requiredFields.filter((field) => !meta[field]);
+      if (missing.length) addSemanticError("content", relative, `missing required frontmatter fields: ${missing.join(", ")}`);
+      if (meta.type && !types.has(meta.type)) addSemanticError("content", relative, `unknown type: ${meta.type}`);
+      if (meta.topic && !topics.has(meta.topic)) addSemanticError("content", relative, `unknown topic: ${meta.topic}`);
+      if (meta.status && !statuses.has(meta.status)) addSemanticError("content", relative, `unknown status: ${meta.status}`);
+      if (meta.source && !sources.has(meta.source)) addSemanticError("content", relative, `unknown source: ${meta.source}`);
+      const expectedWorkspace = relative.split(path.sep)[0];
+      if (meta.workspace && meta.workspace !== expectedWorkspace) addSemanticError("content", relative, `workspace mismatch: ${meta.workspace}`);
+      const contract = subsystemContracts.get(expectedWorkspace);
+      if (contract && meta.type && !contract.allowedTypes.includes("any") && !contract.allowedTypes.includes(meta.type)) addSemanticError("content", relative, `type not allowed in ${expectedWorkspace}: ${meta.type}`);
+      if (contract && meta.status && !contract.statuses.includes(meta.status)) addSemanticError("content", relative, `status not allowed in ${expectedWorkspace}: ${meta.status}`);
+      if (meta.type === "project") {
+        const projectMissing = ["project", "project_type", "project_category", "stage"].filter((field) => !meta[field]);
+        if (projectMissing.length) addSemanticError("projects", relative, `missing project fields: ${projectMissing.join(", ")}`);
+        if (meta.project_type && !projectTypes.has(meta.project_type)) addSemanticError("projects", relative, `unknown project_type: ${meta.project_type}`);
+        if (meta.project_category && !projectCategories.has(meta.project_category)) addSemanticError("projects", relative, `unknown project_category: ${meta.project_category}`);
+        if (meta.stage && !projectStages.has(meta.stage)) addSemanticError("projects", relative, `unknown project stage: ${meta.stage}`);
+      }
+      if (meta.resource_kind && !resourceKinds.has(meta.resource_kind)) addSemanticError("resources", relative, `unknown resource_kind: ${meta.resource_kind}`);
+      if (meta.record_kind && !recordKinds.has(meta.record_kind)) addSemanticError("journal", relative, `unknown record_kind: ${meta.record_kind}`);
+    }
+    checks.push({ severity: "ok", subsystem: "schema", path: ".thirdspace/schema", message: "semantic schema references checked" });
+  }
+
+  const visiblePeople = path.join(vaultRoot, "05-资源/人物档案/people.json");
+  const machinePeople = path.join(vaultRoot, ".thirdspace/data/lifeos/people.json");
+  if (!fs.existsSync(visiblePeople) || !fs.existsSync(machinePeople)) {
+    addSemanticError("lifeos", "05-资源/人物档案/people.json", "LifeOS store missing");
+  } else {
+    try {
+      const visible = JSON.parse(fs.readFileSync(visiblePeople, "utf8"));
+      const machine = JSON.parse(fs.readFileSync(machinePeople, "utf8"));
+      if (JSON.stringify(visible) !== JSON.stringify(machine)) addSemanticError("lifeos", "05-资源/人物档案/people.json", "LifeOS stores differ");
+      else checks.push({ severity: "ok", subsystem: "lifeos", path: "05-资源/人物档案/people.json", message: "LifeOS stores synchronized" });
+    } catch (error) {
+      addSemanticError("lifeos", "05-资源/人物档案/people.json", `LifeOS store invalid JSON: ${error.message}`);
+    }
   }
 
   for (const [id, contract] of Object.entries(SUBSYSTEM_CONTRACTS)) {

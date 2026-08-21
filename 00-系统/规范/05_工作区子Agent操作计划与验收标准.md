@@ -4,7 +4,7 @@ type: "spec"
 topic: "system"
 workspace: "00-系统"
 created: "2026-05-26 17:42:21"
-modified: "2026-08-21 14:55:00"
+modified: "2026-08-21 16:30:00"
 tags: ["system", "spec", "active"]
 source: "manual"
 status: "active"
@@ -620,7 +620,7 @@ target_paths：
 - `00-系统/Agent/` 只保留运行时必需文件。
 - `00-系统/规范/` 只保留当前规范。
 - `00-系统/Skills/` 指向当前 Skill 体系。
-- `00-系统/审计/` 只保留当前清理和验证报告。
+- 当前清理和验证报告统一写入 `.thirdspace/reports/`。
 
 ### 子 Agent 命令
 

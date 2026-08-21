@@ -9,7 +9,7 @@ workspaces:
   "00-系统":
     desc: "系统规范、Skills、运行时"
     input: [manual, agent]
-    allowed_types: [spec, skill, roadmap, note]
+    allowed_types: [spec, skill, roadmap, note, review]
     status_machine: [draft, active, archived]
     output_workspace: []
     agent_writable: false       # 不允许 Agent 在此创建用户内容文件
@@ -49,7 +49,7 @@ workspaces:
   "04-项目":
     desc: "项目、产品 Roadmap、任务看板"
     input: [manual, agent]
-    allowed_types: [roadmap, spec, board, note]
+    allowed_types: [project, roadmap, spec, board, note]
     status_machine: [draft, active, archived]
     default_status: active
     output_workspace: [06-输出]
@@ -58,16 +58,16 @@ workspaces:
   "05-资源":
     desc: "图片、附件、外部素材（非文字内容）"
     input: [import, manual]
-    allowed_types: [note]
+    allowed_types: [resource, note]
     status_machine: [active, archived]
     default_status: active
     output_workspace: [03-知识, 06-输出]
-    agent_writable: false
+    agent_writable: true        # 仅允许受 Skill 约束的资源索引与 LifeOS 双副本写入
 
   "06-输出":
     desc: "对外发布内容（文章、口播稿、脚本）"
     input: [03-知识, manual]
-    allowed_types: [article, voiceover, script, review]
+    allowed_types: [article, voiceover, script, deck, review]
     status_machine: [draft, review, published, archived]
     default_status: draft
     output_workspace: []

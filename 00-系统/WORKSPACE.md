@@ -2,16 +2,14 @@
 
 ## 用途
 
-管理知识库规范、Schema、Agent 协议、Skills、运行时资产、审计报告和迁移记录。
+管理知识库规范、Agent 协议、Skills 和可迁移运行时资产。机器契约与生成报告分别存放在 `.thirdspace/schema/` 和 `.thirdspace/reports/`。
 
 ## 允许
 
 - 规范文档
 - Skill 索引
 - Agent 入口文档
-- Schema
 - 可迁移运行时资产：hook、crontab、Agent 自动化任务规格
-- 审计报告
 - 迁移 manifest
 
 ## 禁止
@@ -23,7 +21,7 @@
 
 ## 命名
 
-规范文档使用 `NN_中文标题.md`。审计报告使用 `YYYYMMDD_审计主题.md`。
+规范文档使用 `NN_中文标题.md`。生成的审计报告使用 `YYYYMMDD_审计主题.md` 并写入 `.thirdspace/reports/`。
 
 ## Frontmatter
 
@@ -48,6 +46,8 @@
 - `00-系统/规范/08_全局路由与Hook事件采集规范.md` 是任意目录路由、Git Hook、Agent Hook 和工作日志的上位协议。
 - `.thirdspace/schema/subsystems.yaml` 是机器可读契约。
 - `.thirdspace/schema/event-capture.yaml` 是事件采集、意图路由和工作日志结构的机器可读契约。
+- `.thirdspace/schema/` 是唯一 Schema 事实源；`.thirdspace/reports/` 是生成审计报告的唯一目录。
+- `00-系统/Agent/README.md` 是系统 Agent 的当前运行入口说明。
 - `00-系统/运行时` 是跨电脑迁移时恢复本机 hook、crontab、自动化任务的源规格目录。
 - 修改任何工作区边界、流转规则、状态机、审计策略或事件采集策略时，必须同步更新规范、Schema、对应 workspace Skill 和 README。
 - 完成修改后运行 `audit-subsystems --write-report`。

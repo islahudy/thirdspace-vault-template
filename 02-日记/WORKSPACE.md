@@ -28,7 +28,7 @@
 
 ## Frontmatter
 
-`workspace` 必须为 `02-日记`，`type` 使用 `worklog`、`reflection`、`review`、`event` 或 `event-raw`。
+`workspace` 必须为 `02-日记`，`type` 使用 `worklog`、`reflection`、`review`、`event` 或 `note`。原始事件记录使用 `type: event` 与 `record_kind: raw`。
 
 ## 子 Skill
 

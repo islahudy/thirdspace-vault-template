@@ -28,7 +28,7 @@ triggers:
 ## 自治维护回路
 
 1. 判断输出类型：文章、口播稿、视频脚本、PPT 或发布稿。
-2. 补 `workspace=06-输出`、`type=article|voiceover|script|deck`、`status=draft|ready|published`。
+2. 补 `workspace=06-输出`、`type=article|voiceover|script|deck`、`status=draft|review|published|archived`。
 3. 记录来源关系：`sources`、`project` 或上游知识笔记。
 4. 发布后更新状态为 `published`，需要归档时流转到 `99-归档`。
 5. 如果只是素材或原始研究，回流到 `03-知识`、`04-项目` 或 `05-资源`。
@@ -36,7 +36,7 @@ triggers:
 ## 审计项
 
 - 成品是否缺来源关系。
-- `draft`、`ready`、`published` 状态是否混乱。
+- `draft`、`review`、`published`、`archived` 状态是否混乱。
 - 是否混入原始素材或系统规范。
 - Markdown 是否缺 Frontmatter。
 

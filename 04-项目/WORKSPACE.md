@@ -1,12 +1,3 @@
----
-type: "note"
-
-title: 04-项目工作区
-description: 管理正在推进的创作、产品、运营和工程项目
-created: 2026-05-24
-project: workspace
-tags: [规范, 工作区]---
-
 # 04-项目 工作区规范
 
 ## 用途
@@ -50,7 +41,7 @@ tags: [规范, 工作区]---
 - `project_category`
 - `stage`
 
-分类规则以 `00-系统/规范/06_项目工作区分类治理规则.md` 和 `.thirdspace/schema/project-taxonomy.yaml` 为准。
+分类规则以 `00-系统/规范/06_项目工作区分类治理规则.md` 和 `.thirdspace/schema/frontmatter.yaml` 的 `conditional_fields.project` 为准。
 
 ## 子 Skill
 

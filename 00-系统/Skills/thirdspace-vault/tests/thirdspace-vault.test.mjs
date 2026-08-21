@@ -13,6 +13,19 @@ function run(...args) {
   return JSON.parse(execFileSync(process.execPath, [script, ...args], { encoding: "utf8" }));
 }
 
+function readYamlList(file, key) {
+  const lines = fs.readFileSync(file, "utf8").split("\n");
+  const start = lines.findIndex((line) => line.trim() === `${key}:`);
+  if (start === -1) return [];
+  const values = [];
+  for (const line of lines.slice(start + 1)) {
+    const match = line.match(/^\s{2}-\s+([^#]+?)(?:\s+#.*)?$/);
+    if (!match) break;
+    values.push(match[1].trim().replace(/^['"]|['"]$/g, ""));
+  }
+  return values;
+}
+
 test("subsystem audit accepts the canonical taxonomy schema", () => {
   const audit = run("audit-subsystems", "--vault", vaultRoot);
   const taxonomyCheck = audit.checks.find((check) => check.path.includes("taxonomy.yaml"));
@@ -34,6 +47,22 @@ test("init creates exactly the canonical schema set", () => {
       "taxonomy.yaml",
       "workspace-tools.yaml",
     ]);
+  } finally {
+    fs.rmSync(target, { recursive: true, force: true });
+  }
+});
+
+test("init creates the system agent entry and synchronized LifeOS stores", () => {
+  const target = fs.mkdtempSync(path.join(os.tmpdir(), "thirdspace-lifeos-"));
+  try {
+    run("init", "--vault", target);
+    assert.equal(fs.existsSync(path.join(target, "00-系统/Agent/README.md")), true);
+    const visible = fs.readFileSync(path.join(target, "05-资源/人物档案/people.json"), "utf8");
+    const machine = fs.readFileSync(path.join(target, ".thirdspace/data/lifeos/people.json"), "utf8");
+    assert.deepEqual(JSON.parse(visible), { version: "1.0", people: [] });
+    assert.equal(machine, visible);
+    assert.equal(fs.existsSync(path.join(target, "00-系统/Schema")), false);
+    assert.equal(fs.existsSync(path.join(target, "00-系统/审计")), false);
   } finally {
     fs.rmSync(target, { recursive: true, force: true });
   }
@@ -72,5 +101,74 @@ test("canonical system specifications satisfy frontmatter requirements", () => {
 test("git ignores machine-local Obsidian state and ThirdSpace events", () => {
   for (const relative of [".obsidian/workspace.json", ".thirdspace/events/session.ndjson"]) {
     execFileSync("git", ["-C", vaultRoot, "check-ignore", "--quiet", relative]);
+  }
+});
+
+test("canonical schemas expose every supported type and status", () => {
+  assert.deepEqual(readYamlList(path.join(vaultRoot, ".thirdspace/schema/taxonomy.yaml"), "type_values"), [
+    "note", "card", "article", "voiceover", "script", "deck", "review", "reflection", "worklog",
+    "clipping", "study", "spec", "skill", "roadmap", "board", "event", "project", "resource",
+  ]);
+  assert.deepEqual(readYamlList(path.join(vaultRoot, ".thirdspace/schema/frontmatter.yaml"), "status_values"), [
+    "draft", "active", "processed", "review", "published", "archived",
+  ]);
+});
+
+test("active workspace contracts do not use retired metadata values", () => {
+  const files = [
+    "02-日记/WORKSPACE.md",
+    "00-系统/Skills/lifeos/SKILL.md",
+    "00-系统/Skills/workspace-journal/SKILL.md",
+    "00-系统/Skills/workspace-outputs/SKILL.md",
+    "00-系统/规范/07_自治子系统设计规范.md",
+  ];
+  for (const relative of files) {
+    const content = fs.readFileSync(path.join(vaultRoot, relative), "utf8");
+    for (const retired of ["event-raw", "profile-data", "`ready`", "status=draft|ready"] ) {
+      assert.equal(content.includes(retired), false, `${relative} references ${retired}`);
+    }
+  }
+});
+
+test("workspace tool routing references only canonical local skills", () => {
+  const schema = fs.readFileSync(path.join(vaultRoot, ".thirdspace/schema/workspace-tools.yaml"), "utf8");
+  const names = [...schema.matchAll(/^\s+(?:primary|skill):\s+([^\s#]+)$/gm)].map((match) => match[1]);
+  for (const name of names) {
+    assert.equal(fs.existsSync(path.join(vaultRoot, "00-系统/Skills", name, "SKILL.md")), true, `${name} is missing`);
+  }
+  for (const required of ["knowledge", "lifeos", "reflect", "review", "worklog"]) {
+    assert.equal(names.includes(required), true, `${required} is not routed`);
+  }
+});
+
+test("semantic audit rejects unknown subsystem types and missing skills", () => {
+  const target = fs.mkdtempSync(path.join(os.tmpdir(), "thirdspace-semantic-"));
+  try {
+    run("init", "--vault", target);
+    const subsystems = path.join(target, ".thirdspace/schema/subsystems.yaml");
+    fs.writeFileSync(subsystems, fs.readFileSync(subsystems, "utf8").replace("[spec, skill, roadmap, note, review]", "[spec, ghost-type]"));
+    const tools = path.join(target, ".thirdspace/schema/workspace-tools.yaml");
+    fs.writeFileSync(tools, `${fs.readFileSync(tools, "utf8")}\n# fixture\n    skill: missing-domain\n`);
+    const audit = run("audit-subsystems", "--vault", target);
+    assert.equal(audit.checks.some((check) => check.message.includes("unknown allowed type: ghost-type")), true);
+    assert.equal(audit.checks.some((check) => check.message.includes("configured skill missing: missing-domain")), true);
+    assert.equal(audit.summary.error >= 2, true);
+  } finally {
+    fs.rmSync(target, { recursive: true, force: true });
+  }
+});
+
+test("semantic audit validates project metadata and LifeOS synchronization", () => {
+  const target = fs.mkdtempSync(path.join(os.tmpdir(), "thirdspace-content-"));
+  try {
+    run("init", "--vault", target);
+    const project = path.join(target, "04-项目/产品系统/20260821_测试.md");
+    fs.writeFileSync(project, "---\ntitle: \"测试\"\ntype: \"project\"\ntopic: \"project\"\nworkspace: \"04-项目\"\ncreated: \"2026-08-21 00:00:00\"\nmodified: \"2026-08-21 00:00:00\"\ntags: [project]\nsource: \"manual\"\nstatus: \"active\"\n---\n\n# 测试\n");
+    fs.writeFileSync(path.join(target, ".thirdspace/data/lifeos/people.json"), '{"version":"1.0","people":[{"id":"different"}]}\n');
+    const audit = run("audit-subsystems", "--vault", target);
+    assert.equal(audit.checks.some((check) => check.path.endsWith("20260821_测试.md") && check.message.includes("missing project fields")), true);
+    assert.equal(audit.checks.some((check) => check.message.includes("LifeOS stores differ")), true);
+  } finally {
+    fs.rmSync(target, { recursive: true, force: true });
   }
 });

@@ -49,14 +49,9 @@ thirdspace-vault
 |---|---|
 | 人际事件、人物档案、关系复盘 | `lifeos` |
 | 工作日志、Git Hook、Agent 产出记录 | `worklog` |
-| 文章、教程、发布稿 | `article` |
-| 项目文档、MVP、实践迭代 | `mvp-project`、`ship-learn-next` |
-| 视频收集、视频分析 | `video-collector`、`video-analyzer` |
-| Canvas 可视化 | `obsidian-canvas` |
 | 知识卡片、学习文档 | `knowledge` |
-| 创作数据、内容健康度 | `creation-tracking` |
-| Markdown 转图片 | `mkd2pic` |
-| 飞书导入、提醒、任务协同 | `feishu` |
+| 反思与决策复盘 | `reflect` |
+| 周报、月报与周期复盘 | `review` |
 
 ## Prompt 与旧 CLI 规则
 

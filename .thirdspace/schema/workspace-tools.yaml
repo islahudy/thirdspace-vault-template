@@ -23,13 +23,19 @@ workspace_skills:
       lifeos:
         skill: lifeos
         triggers: [人际, 生活, 事件, 关系]
+      reflect:
+        skill: reflect
+        triggers: [反思, 情绪, 决策复盘]
+      review:
+        skill: review
+        triggers: [复盘, 回顾, 周报, 月报]
 
   "03-知识":
     primary: workspace-knowledge
     domain:
-      review:
-        skill: review
-        triggers: [复盘, 回顾, 周报, 月报]
+      knowledge:
+        skill: knowledge
+        triggers: [知识卡片, 学习文档, 知识整理, 主题笔记]
 
   "04-项目":
     primary: workspace-projects
@@ -37,7 +43,10 @@ workspace_skills:
 
   "05-资源":
     primary: workspace-resources
-    domain: []
+    domain:
+      lifeos:
+        skill: lifeos
+        triggers: [人物档案, 人际, 关系]
 
   "06-输出":
     primary: workspace-outputs

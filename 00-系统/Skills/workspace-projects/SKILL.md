@@ -33,6 +33,7 @@ triggers:
 | `内容创作` | `content` | 视频、文章、课程、栏目、选题、发布包 |
 | `产品系统` | `product` | 软件、工具、系统、插件、技术产品 |
 | `运营增长` | `operations` | 知识星球、社群、运营 SOP、内容矩阵、增长飞轮、数据追踪 |
+| `商业合作` | `business` | 客户线索、报价、合作方案、商业模式验证 |
 | `研究验证` | `research` | 阶段性调研、技术验证、方案探索 |
 | `实验原型` | `experiment` | MVP、原型、低成本试验、方向未定项目 |
 
@@ -93,9 +94,4 @@ node {SKILLS}/thirdspace-vault/scripts/thirdspace-vault.mjs audit-projects --vau
 
 ## 子 Skill
 
-按项目类型渐进式加载：
-
-- 内容创作：`creative-video-workflow`、`moonlit-video-draft-pipeline`
-- 产品系统 / 实验原型：`mvp-project`
-- 运营增长：`review`、`mvp-project`
-- 研究验证：`workspace-knowledge`
+当前没有项目专用领域 Skill。只有当用户意图同时命中已有 canonical 领域 Skill 时，才按 `.thirdspace/schema/workspace-tools.yaml` 加载；项目内局部 Skill 由项目自己的 `AGENTS.md` 或 `CLAUDE.md` 声明。

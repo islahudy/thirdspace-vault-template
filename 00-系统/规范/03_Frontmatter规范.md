@@ -4,7 +4,7 @@ type: "spec"
 topic: "system"
 workspace: "00-系统"
 created: "2026-05-26 17:42:21"
-modified: "2026-08-21 14:55:00"
+modified: "2026-08-21 16:30:00"
 tags: ["system", "spec", "active"]
 source: "manual"
 status: "active"
@@ -38,7 +38,14 @@ status: "active"
 - `modified`：最后修改时间。
 - `tags`：类型、状态、来源和补充语义。
 - `source`：来源。
-- `status`：`draft`、`active`、`processed`、`archived`。
+- `status`：`draft`、`active`、`processed`、`review`、`published`、`archived`。
+
+## 条件字段
+
+- `type: project` 必须同时提供 `project`、`project_type`、`project_category`、`stage`。
+- `type: resource` 可用 `resource_kind: reference|asset|workflow|profile` 表示资源细类。
+- `type: event` 可用 `record_kind: raw|analyzed` 表示记录阶段。
+- 条件字段及枚举的唯一事实源是 `.thirdspace/schema/frontmatter.yaml`。
 
 ## 自动修复
 

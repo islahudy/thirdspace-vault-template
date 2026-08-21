@@ -13,6 +13,7 @@ required_fields:
   - status
 
 source_values:
+  - agent         # 由 Agent 创建或维护
   - mcp           # 通过 ThirdSpace MCP 工具写入
   - manual        # 人工手写
   - obsidian-clipper  # Obsidian Web Clipper 剪藏
@@ -23,4 +24,24 @@ status_values:
   - draft         # 草稿，未完成
   - active        # 活跃，正在使用
   - processed     # 已处理（适用于剪藏、收件箱内容）
+  - review        # 审核中（适用于输出内容）
+  - published     # 已发布（适用于输出内容）
   - archived      # 已归档，不再活跃
+
+conditional_fields:
+  project:
+    when_type: project
+    required: [project, project_type, project_category, stage]
+    project_type_values: [content, product, operations, business, research, experiment]
+    project_category_values: [内容创作, 产品系统, 运营增长, 商业合作, 研究验证, 实验原型]
+    stage_values: [idea, research, prototype, active, paused, completed, archived]
+
+  resource:
+    when_type: resource
+    optional: [resource_kind]
+    resource_kind_values: [reference, asset, workflow, profile]
+
+  event:
+    when_type: event
+    optional: [record_kind]
+    record_kind_values: [raw, analyzed]

@@ -26,6 +26,8 @@
 
 `workspace` 必须为 `06-输出`，`type` 使用 `article`、`voiceover`、`script` 或 `deck`。
 
+输出生命周期统一使用 `draft -> review -> published -> archived`。
+
 ## 子 Skill
 
 使用 `workspace-outputs`。

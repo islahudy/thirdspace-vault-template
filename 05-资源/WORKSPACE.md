@@ -26,7 +26,7 @@
 
 ## Frontmatter
 
-`workspace` 必须为 `05-资源`，`type` 使用 `resource`、`note`、`asset`、`workflow` 或 `profile-data`。
+`workspace` 必须为 `05-资源`，`type` 使用 `resource` 或 `note`。资源细类通过 `resource_kind: reference|asset|workflow|profile` 表示。
 
 ## 子 Skill
 
