@@ -1,0 +1,56 @@
+# Obsidian personal state
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/hotkeys.json
+.obsidian/graph.json
+.obsidian/starred.json
+
+# Obsidian plugin personal data and caches
+.obsidian/plugins/obsidian-git/
+.obsidian/plugins/obsidian-style-settings/
+.obsidian/plugins/remotely-save/
+.obsidian/plugins/lingxi/
+.obsidian/plugins/claudian/
+.obsidian/plugins/*/data.json
+.obsidian/plugins/*/data/
+.obsidian/cache
+.obsidian/.cache
+
+# Agent local settings
+.claude/settings.local.json
+.codebuddy/settings.local.json
+
+# ThirdSpace machine-local runtime data
+.thirdspace/config.yaml
+.thirdspace/reports/*
+.thirdspace/manifests/*
+.thirdspace/queues/*
+.thirdspace/events/
+!.thirdspace/reports/.gitkeep
+!.thirdspace/manifests/.gitkeep
+!.thirdspace/queues/.gitkeep
+
+# System files
+.DS_Store
+*.swp
+*.tmp
+
+# Daily content files. The template repo keeps structure, specs, and workspace entry files only.
+202[0-9]-*.md
+01-收件箱/**/*.md
+02-日记/工作日志/*.md
+02-日记/反思/*.md
+02-日记/复盘/*.md
+02-日记/人际事件/*.md
+02-日记/todos/*.md
+03-知识/**/*.md
+04-项目/**/*.md
+05-资源/**/*.md
+06-输出/**/*.md
+99-归档/**/*.md
+99-归档/**/*.py
+99-归档/**/*.yaml
+
+# Keep workspace specs and empty directory placeholders.
+!**/WORKSPACE.md
+!**/.gitkeep

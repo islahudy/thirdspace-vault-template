@@ -1,0 +1,32 @@
+id: knowledge
+name: 知识引擎
+description: "网页/PDF 内容采集 → 知识卡片/学习文档（纯 Agent 模式：WebFetch + Write）"
+icon: "📚"
+category: knowledge
+# 实现方式：Agent 原生工具（无外部脚本）
+# - 内容采集：Agent 使用 WebFetch/Read 工具
+# - 内容保存：Agent 使用 Write 工具 + 标准 frontmatter
+# - 知识卡片路径：03-知识/card/{topic}/YYYYMMDD_{标题}.md
+# - 学习文档路径：03-知识/study/{topic}/YYYYMMDD_{标题}.md
+workflows:
+  - name: collect_and_card
+    description: 采集网页内容，生成知识卡片保存到 03-知识/
+    prompt: prompts/knowledge-card.md
+  - name: collect_and_study
+    description: 采集高密度内容（访谈/教程/播客），生成学习文档保存到 03-知识/
+    prompt: prompts/study-doc.md
+  - name: add_note
+    description: 快速记录笔记到 03-知识/notes/{topic}/，Agent 用 Write 工具直接写入
+prompts:
+  - name: knowledge-card
+    path: prompts/knowledge-card.md
+  - name: study-doc
+    path: prompts/study-doc.md
+triggers:
+  - 收集
+  - 知识卡片
+  - 学习文档
+  - 抓取
+  - 笔记
+  - 网页收集
+dependencies: []
