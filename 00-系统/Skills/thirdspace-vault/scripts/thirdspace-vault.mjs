@@ -512,14 +512,15 @@ function initVault(vaultRoot, args = {}) {
   ensureDir(path.join(vaultRoot, ".thirdspace", "events"));
   dirs += 1;
   files += writeIfMissing(path.join(vaultRoot, "AGENTS.md"), "# ThirdSpace Agent 入口\n\n读取 `.thirdspace/workspace-index.yaml` 后按当前工作区规范执行。\n") ? 1 : 0;
-  files += writeIfMissing(path.join(vaultRoot, "CLAUDE.md"), "# ThirdSpace Claude Code 入口\n\n先读 `AGENTS.md`、`.thirdspace/workspace-index.yaml` 和 `.thirdspace/schema/workspace-taxonomy.yaml`，再读取当前工作区的 `WORKSPACE.md`。\n") ? 1 : 0;
+  files += writeIfMissing(path.join(vaultRoot, "CLAUDE.md"), "# ThirdSpace Claude Code 入口\n\n先读 `AGENTS.md`、`.thirdspace/workspace-index.yaml` 和 `.thirdspace/schema/taxonomy.yaml`，再读取当前工作区的 `WORKSPACE.md`。\n") ? 1 : 0;
   files += writeIfMissing(path.join(vaultRoot, "README.md"), "# ThirdSpace 知识库\n\n中文管理、扁平工作区、Agent-native 的知识库。\n") ? 1 : 0;
   files += writeIfMissing(path.join(vaultRoot, ".thirdspace", "workspace-index.yaml"), renderWorkspaceIndex(vaultRoot)) ? 1 : 0;
-  files += writeIfMissing(path.join(vaultRoot, ".thirdspace", "schema", "workspace-taxonomy.yaml"), renderWorkspaceTaxonomy()) ? 1 : 0;
-  files += writeIfMissing(path.join(vaultRoot, ".thirdspace", "schema", "project-taxonomy.yaml"), renderProjectTaxonomy()) ? 1 : 0;
-  files += writeIfMissing(path.join(vaultRoot, ".thirdspace", "schema", "subsystems.yaml"), renderSubsystemContracts()) ? 1 : 0;
-  files += writeIfMissing(path.join(vaultRoot, ".thirdspace", "schema", "event-capture.yaml"), renderEventCaptureSchema()) ? 1 : 0;
-  files += writeIfMissing(path.join(vaultRoot, ".thirdspace", "schema", "workspace-tools.yaml"), renderWorkspaceToolsSchema()) ? 1 : 0;
+  const sourceSchemaRoot = path.resolve(path.dirname(scriptFilePath()), "..", "..", "..", "..", ".thirdspace", "schema");
+  for (const schema of ["taxonomy.yaml", "frontmatter.yaml", "subsystems.yaml", "event-capture.yaml", "workspace-tools.yaml"]) {
+    const source = path.join(sourceSchemaRoot, schema);
+    if (!fs.existsSync(source)) throw new Error(`canonical schema missing: ${source}`);
+    files += writeIfMissing(path.join(vaultRoot, ".thirdspace", "schema", schema), fs.readFileSync(source, "utf8")) ? 1 : 0;
+  }
   const skills = ensureCanonicalSkills(vaultRoot, args);
   const runtime = ensureRuntimeAssets({ vault: vaultRoot });
   for (const [, dir, skill] of WORKSPACES) {
@@ -592,7 +593,7 @@ function renderWorkspaceToolsSchema() {
     '  skill_root: "00-系统/Skills"',
     '  tools: ["resolve-vault", "detect", "route-create", "ensure-worklog", "record-agent-event", "ensure-runtime-assets", "install-runtime", "audit-workspaces", "audit-subsystems", "audit-skill-locations"]',
     "progressive_loading:",
-    '  level_0_global: ["AGENTS.md", ".thirdspace/workspace-index.yaml", ".thirdspace/schema/workspace-taxonomy.yaml", ".thirdspace/schema/subsystems.yaml", ".thirdspace/schema/event-capture.yaml", ".thirdspace/schema/workspace-tools.yaml"]',
+    '  level_0_global: ["AGENTS.md", ".thirdspace/workspace-index.yaml", ".thirdspace/schema/taxonomy.yaml", ".thirdspace/schema/subsystems.yaml", ".thirdspace/schema/event-capture.yaml", ".thirdspace/schema/workspace-tools.yaml"]',
     '  level_1_workspace: ["<workspace>/WORKSPACE.md", "<workspace-skill>/SKILL.md"]',
     '  level_2_domain: "Only load domain skills when the intent or file type requires them."',
     "workspaces:",
@@ -1470,6 +1471,7 @@ function countMarkdownFiles(dir) {
   return walkFiles(dir, 20).filter((file) => {
     if (!file.endsWith(".md")) return false;
     if (file.includes(`${path.sep}00-系统${path.sep}Skills${path.sep}`)) return false;
+    if (["WORKSPACE.md", "AGENTS.md", "CLAUDE.md", "README.md", "SKILL.md"].includes(path.basename(file))) return false;
     return true;
   }).length;
 }
@@ -1478,6 +1480,7 @@ function countFilesMissingFrontmatter(dir) {
   return walkFiles(dir, 20).filter((file) => {
     if (!file.endsWith(".md")) return false;
     if (file.includes(`${path.sep}00-系统${path.sep}Skills${path.sep}`)) return false;
+    if (["WORKSPACE.md", "AGENTS.md", "CLAUDE.md", "README.md", "SKILL.md"].includes(path.basename(file))) return false;
     try {
       return !fs.readFileSync(file, "utf8").startsWith("---\n");
     } catch {
@@ -1552,7 +1555,7 @@ function auditSubsystems(vaultRoot, args = {}) {
   const maintenanceItems = [];
   const schemaFiles = [
     ".thirdspace/workspace-index.yaml",
-    ".thirdspace/schema/workspace-taxonomy.yaml",
+    ".thirdspace/schema/taxonomy.yaml",
     ".thirdspace/schema/subsystems.yaml",
     ".thirdspace/schema/frontmatter.yaml",
     ".thirdspace/schema/event-capture.yaml",

@@ -1,3 +1,15 @@
+---
+title: "全局路由与 Hook 事件采集规范"
+type: "spec"
+topic: "system"
+workspace: "00-系统"
+created: "2026-05-26 17:42:21"
+modified: "2026-08-21 14:55:00"
+tags: ["system", "spec", "active"]
+source: "manual"
+status: "active"
+---
+
 # 全局路由与 Hook 事件采集规范
 
 ## 目标

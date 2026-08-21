@@ -1,3 +1,15 @@
+---
+title: "工作区子 Agent 操作计划与验收标准"
+type: "spec"
+topic: "system"
+workspace: "00-系统"
+created: "2026-05-26 17:42:21"
+modified: "2026-08-21 14:55:00"
+tags: ["system", "spec", "active"]
+source: "manual"
+status: "active"
+---
+
 # 工作区子 Agent 操作计划与验收标准
 
 > **路径约定（所有人适用）**

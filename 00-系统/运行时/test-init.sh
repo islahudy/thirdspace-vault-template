@@ -8,9 +8,11 @@
 # ============================================================
 set -euo pipefail
 
-TEMPLATE="${TEMPLATE:-/vault-template}"
-VAULT="/tmp/ts-sandbox-$$"
-TEST_REPO="/tmp/ts-testrepo-$$"
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+TEMPLATE="${TEMPLATE:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
+TEST_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/thirdspace-init-test.XXXXXX")"
+VAULT="$TEST_ROOT/vault"
+TEST_REPO="$TEST_ROOT/ts-testrepo"
 PASS=0; FAIL=0
 
 green() { echo -e "\033[32m✓ $*\033[0m"; }
@@ -26,7 +28,7 @@ check() {
   fi
 }
 
-cleanup() { rm -rf "$VAULT" "$TEST_REPO" 2>/dev/null || true; }
+cleanup() { rm -rf "$TEST_ROOT" 2>/dev/null || true; }
 trap cleanup EXIT
 
 echo ""
@@ -55,7 +57,7 @@ echo ""
 cyan "STEP 2: 路径无关性验证（期望 0 个硬编码绝对路径）"
 
 check "schema/ 无硬编码路径" \
-  bash -c "! grep -r '/Users/\|/home/' $VAULT/.thirdspace/ 2>/dev/null | grep -qv '#'"
+  bash -c "! grep -r '/Users/\|/home/' $VAULT/.thirdspace/schema/ 2>/dev/null | grep -qv '#'"
 check "运行时/ 无硬编码路径（test-init.sh 除外）" \
   bash -c "! grep -r '/Users/' $VAULT/00-系统/运行时/ --include='*.sh' --include='*.yaml' \
     --exclude='test-init.sh' 2>/dev/null | grep -q ."
@@ -79,12 +81,6 @@ echo ""
 # ── STEP 4: git hook 全流程 ──────────────────────────────────
 cyan "STEP 4: git hook → worklog 写入测试"
 
-# 安装模板自己的 hook（测试应自给自足，不依赖系统已安装版本）
-mkdir -p ~/.config/git/hooks
-cp "$VAULT/00-系统/运行时/hooks/global-post-commit.sh" ~/.config/git/hooks/post-commit
-chmod +x ~/.config/git/hooks/post-commit
-git config --global core.hooksPath ~/.config/git/hooks
-
 # 清空旧工作日志（模板 cp 可能带入遗留文件）
 rm -f "$VAULT/02-日记/工作日志/"*.md 2>/dev/null || true
 
@@ -92,6 +88,12 @@ mkdir -p "$TEST_REPO" && cd "$TEST_REPO"
 git init -b main -q
 git config user.email "sandbox@test.local"
 git config user.name  "Sandbox"
+# 仅在临时测试仓库中启用 hook，不修改用户的全局 Git 配置。
+TEST_HOOKS="$TEST_REPO/.git-hooks"
+mkdir -p "$TEST_HOOKS"
+cp "$VAULT/00-系统/运行时/hooks/global-post-commit.sh" "$TEST_HOOKS/post-commit"
+chmod +x "$TEST_HOOKS/post-commit"
+git config core.hooksPath "$TEST_HOOKS"
 echo "# test" > file.md && git add file.md
 
 THIRDSPACE_VAULT="$VAULT" git commit -m "test: verify hook creates worklog" -q
@@ -105,7 +107,7 @@ check "worklog 含 commit 记录"            bash -c "grep -q 'ts-testrepo' '$LO
 check "worklog 含 ## 今日Todo"            bash -c "grep -q '## 今日Todo' '$LOGFILE' 2>/dev/null"
 check "worklog 含 ## 重点记录"            bash -c "grep -q '## 重点记录' '$LOGFILE' 2>/dev/null"
 
-cd ~
+cd "$SCRIPT_DIR"
 
 echo ""
 
