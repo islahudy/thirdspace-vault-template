@@ -132,7 +132,32 @@ private struct AnyEncodable: Encodable {
   }
 }
 
+enum BridgeBootstrap {
+  static func dispatcherUnavailableResponse() -> BridgeResponse {
+    .failure(.init(
+      code: .invalidRequest,
+      message: "EventKit bridge dispatcher is not installed."
+    ))
+  }
+
+  static func run() {
+    _ = FileHandle.standardInput.readDataToEndOfFile()
+
+    let response = dispatcherUnavailableResponse()
+    let fallback = Data(
+      #"{"success":false,"error":{"code":"INVALID_REQUEST","message":"EventKit bridge dispatcher is not installed."}}"#.utf8
+    )
+    let output = (try? JSONEncoder().encode(response)) ?? fallback
+
+    FileHandle.standardOutput.write(output)
+    FileHandle.standardOutput.write(Data([0x0A]))
+  }
+}
+
+// Task 5 replaces this bootstrap entry point with the dispatcher-backed main.swift.
 @main
 struct EventKitBridgeExecutable {
-  static func main() {}
+  static func main() {
+    BridgeBootstrap.run()
+  }
 }
