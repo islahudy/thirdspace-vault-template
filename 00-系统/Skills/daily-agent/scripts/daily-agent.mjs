@@ -2,6 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { aggregateReport } from "./lib/aggregator.mjs";
 import { completeOpening, prepareOpening } from "./lib/opening.mjs";
 import { normalizeEvents } from "./lib/normalizer.mjs";
 import { confirmReadingCandidate, scanReadingInbox } from "./lib/reading.mjs";
@@ -78,6 +79,24 @@ function dispatch(args) {
     return syncRemoteSources(context, { configPath: resolvedConfig });
   }
   if (command === "events-normalize") return normalizeEvents(context);
+  if (command === "report-aggregate") {
+    const report = aggregateReport(context, {
+      kind: args.kind,
+      referenceDate: args.date,
+      start: args.start,
+      end: args.end,
+      timezone: args.timezone,
+    });
+    return {
+      path: path.join(context.vaultRoot, ".thirdspace", "data", "daily-agent", "report-input", `${report.period.id}.json`),
+      summary: {
+        commits: report.git.total.commits,
+        token_sessions: report.tokens.total_sessions,
+        completed_tasks: report.tasks.completed.length,
+        processed_readings: report.reading.processed.length,
+      },
+    };
+  }
   throw new Error(`unknown command: ${command || "missing"}`);
 }
 

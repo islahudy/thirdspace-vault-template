@@ -5,6 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import { execFileSync } from "node:child_process";
 
+import { aggregateReport, resolvePeriod } from "../scripts/lib/aggregator.mjs";
 import { loadRemoteSources } from "../scripts/lib/remote-config.mjs";
 import { syncRemoteSources } from "../scripts/lib/remote-sync.mjs";
 import { normalizeEvents } from "../scripts/lib/normalizer.mjs";
@@ -112,6 +113,177 @@ function runCli(root, ...args) {
     cwd: root,
   }));
 }
+
+function writeNormalizedEvents(root, month, events) {
+  const file = path.join(root, ".thirdspace", "events", "normalized", `${month}.ndjson`);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, `${events.map((event) => JSON.stringify(event)).join("\n")}\n`, "utf8");
+}
+
+function normalizedCommit(eventId, timestamp, input = {}) {
+  return {
+    schema_version: "1.0", event_id: eventId, timestamp, event_type: "git_commit",
+    source_id: input.source_id || "183", subject_id: input.repo || "research-code",
+    repo: input.repo || "research-code", branch: input.branch || "main",
+    summary: input.summary || eventId,
+    metrics: {
+      commits: 1, files_changed: 2, lines_added: 10, lines_deleted: 1,
+      ...input.metrics,
+    },
+    evidence: { commit: input.commit || `${eventId}-sha`, raw_line: "must-not-leak" },
+    project_id: input.project_id === undefined ? "project_research" : input.project_id,
+    raw_line: "must-not-leak",
+  };
+}
+
+function normalizedToken(eventId, timestamp, input = {}) {
+  return {
+    schema_version: "1.0", event_id: eventId, timestamp, event_type: "token_usage",
+    source_id: input.source_id || "183", subject_id: input.session_id || eventId,
+    repo: input.repo || "research-code", model: input.model || "model-a",
+    session_id: input.session_id || eventId,
+    metrics: {
+      input_tokens: 0, output_tokens: 0, cache_read_tokens: 0,
+      cache_write_tokens: 0, total_tokens: 0, ...input.metrics,
+    },
+    project_id: input.project_id === undefined ? "project_research" : input.project_id,
+    raw_line: "must-not-leak",
+  };
+}
+
+test("report periods use Shanghai Monday/Sunday and calendar-month boundaries", () => {
+  assert.deepEqual(resolvePeriod("weekly", "2026-08-23", "Asia/Shanghai"), {
+    id: "2026-W34",
+    start: "2026-08-17T00:00:00+08:00",
+    end: "2026-08-24T00:00:00+08:00",
+  });
+  assert.deepEqual(resolvePeriod("weekly", "2026-08-23T16:00:00.000Z", "Asia/Shanghai"), {
+    id: "2026-W35",
+    start: "2026-08-24T00:00:00+08:00",
+    end: "2026-08-31T00:00:00+08:00",
+  });
+  assert.deepEqual(resolvePeriod("monthly", "2026-09-30", "Asia/Shanghai"), {
+    id: "2026-09",
+    start: "2026-09-01T00:00:00+08:00",
+    end: "2026-10-01T00:00:00+08:00",
+  });
+});
+
+test("report aggregation is deterministic, deduplicated, bounded, and preserves unknown Token coverage", () => {
+  const root = temporaryVault();
+  try {
+    writeJson(path.join(root, ".thirdspace", "data", "daily-agent", "tasks.json"), {
+      version: "1.0", revision: 0, updated_at: null,
+      tasks: [
+        { id: "task-complete", title: "Finished", status: "completed", priority: "high", project_id: "project_research", due: null, completed_at: "2026-08-20T12:00:00+08:00", private_note: "hide" },
+        { id: "task-active", title: "Continue", status: "active", priority: "normal", project_id: null, due: "2026-08-30", completed_at: null, private_note: "hide" },
+        { id: "task-old", title: "Old completion", status: "completed", priority: "normal", project_id: null, due: null, completed_at: "2026-08-16T23:59:59+08:00" },
+      ],
+    });
+    writeJson(path.join(root, ".thirdspace", "data", "daily-agent", "reading-queue.json"), {
+      version: "1.0", revision: 0, updated_at: null,
+      items: [
+        { id: "reading-done", kind: "paper", title: "Read", source_path: "01-收件箱/read.md", status: "processed", tags: ["paper"], added_at: "2026-08-10T09:00:00+08:00", processed_at: "2026-08-18T09:00:00+08:00", output_path: "03-知识/read.md", raw_content: "hide" },
+        { id: "reading-pending", kind: "blog", title: "Pending", source_path: "01-收件箱/pending.md", status: "pending", tags: ["blog"], added_at: "2026-08-19T09:00:00+08:00", processed_at: null, output_path: null, raw_content: "hide" },
+      ], candidates: [], dismissed_source_paths: [],
+    });
+    writeJson(path.join(root, ".thirdspace", "data", "daily-agent", "project-index.json"), {
+      version: "1.0", revision: 0, updated_at: null,
+      projects: [
+        { id: "project_research", name: "Research", path: "04-项目/Research", status: "active", stage: "active", repo_mappings: ["research-code"] },
+        { id: "project_quiet", name: "Quiet", path: "04-项目/Quiet", status: "active", stage: "planning", repo_mappings: ["quiet-code"] },
+        { id: "project_archived", name: "Archived", path: "04-项目/Archived", status: "archived", stage: "archived", repo_mappings: ["archive-code"] },
+      ],
+    });
+    const commits = [
+      normalizedCommit("commit-2", "2026-08-18T11:00:00+08:00", { source_id: "184", repo: "other-code", project_id: null, branch: "dev", metrics: { files_changed: 1, lines_added: 3, lines_deleted: 0 } }),
+      normalizedCommit("commit-1", "2026-08-17T00:00:00+08:00"),
+      normalizedCommit("commit-3", "2026-08-23T23:59:59+08:00", { metrics: { files_changed: 4, lines_added: 7, lines_deleted: 2 } }),
+      normalizedCommit("end-exclusive", "2026-08-24T00:00:00+08:00"),
+    ];
+    const tokenEvents = [
+      normalizedToken("session-a1", "2026-08-19T09:00:00+08:00", { metrics: { input_tokens: 700, output_tokens: 100, cache_read_tokens: 500, cache_write_tokens: 0, total_tokens: 1300 } }),
+      normalizedToken("session-a2", "2026-08-20T09:00:00+08:00", { source_id: "184", metrics: { input_tokens: 500, output_tokens: 200, cache_read_tokens: 0, cache_write_tokens: 0, total_tokens: 700 } }),
+      normalizedToken("session-b1", "2026-08-21T09:00:00+08:00", { model: "model-b", repo: "other-code", project_id: null, metrics: { input_tokens: 40, output_tokens: 10, cache_read_tokens: null, cache_write_tokens: null, total_tokens: 50 } }),
+    ];
+    writeNormalizedEvents(root, "202608", [...commits, ...tokenEvents, commits[0]]);
+    const irrelevant = path.join(root, ".thirdspace", "events", "normalized", "202501.ndjson");
+    fs.writeFileSync(irrelevant, "not-json\n", "utf8");
+    writeJson(path.join(root, ".thirdspace", "events", "reports", "normalization-errors.json"), {
+      version: "1.0", generated_at: "2026-08-22T09:00:00+08:00",
+      errors: [{ source_id: "broken", line: 2, reason: "invalid JSON", raw_line: "hide" }],
+    });
+
+    const context = { vaultRoot: root, now: "2026-08-24T08:00:00+08:00", timezone: "Asia/Shanghai" };
+    const report = aggregateReport(context, { kind: "weekly", referenceDate: "2026-08-23" });
+    const rebuilt = aggregateReport(context, { kind: "weekly", referenceDate: "2026-08-23" });
+
+    assert.deepEqual(rebuilt, report);
+    assert.deepEqual(Object.keys(report), ["version", "generated_at", "period", "git", "tokens", "tasks", "reading", "projects", "coverage"]);
+    assert.equal(report.period.id, "2026-W34");
+    assert.equal(report.git.total.commits, 3);
+    assert.deepEqual(report.git.total, { commits: 3, files_changed: 7, lines_added: 20, lines_deleted: 3 });
+    assert.deepEqual(report.git.by_project.unmapped.by_repo["other-code"].evidence, [{
+      commit: "commit-2-sha", timestamp: "2026-08-18T11:00:00+08:00", branch: "dev", summary: "commit-2",
+    }]);
+    assert.deepEqual(report.tokens.by_model["model-a"], {
+      sessions: 2, input_tokens: 1200, output_tokens: 300,
+      cache_read_tokens: 500, cache_write_tokens: 0, total_tokens: 2000,
+    });
+    assert.deepEqual(report.tokens.by_model["model-b"], {
+      sessions: 1, input_tokens: 40, output_tokens: 10,
+      cache_read_tokens: null, cache_write_tokens: null, total_tokens: 50,
+    });
+    assert.deepEqual(report.tasks.completed.map((item) => item.id), ["task-complete"]);
+    assert.deepEqual(report.tasks.carryover.map((item) => item.id), ["task-active"]);
+    assert.deepEqual(report.reading.processed.map((item) => item.id), ["reading-done"]);
+    assert.deepEqual(report.reading.backlog.map((item) => item.id), ["reading-pending"]);
+    assert.deepEqual(report.projects.active.map((item) => item.id), ["project_quiet", "project_research"]);
+    assert.deepEqual(report.projects.without_activity.map((item) => item.id), ["project_quiet"]);
+    assert.deepEqual(report.coverage, {
+      sources: ["183", "184"], rejected_events: 1,
+      unmapped_repos: ["other-code"], missing_token_fields: 2,
+    });
+    assert.equal(JSON.stringify(report).includes("raw_line"), false);
+    assert.equal(JSON.stringify(report).includes("private_note"), false);
+    assert.equal(JSON.stringify(report).includes("raw_content"), false);
+    const output = path.join(root, ".thirdspace", "data", "daily-agent", "report-input", "2026-W34.json");
+    assert.deepEqual(JSON.parse(fs.readFileSync(output, "utf8")), report);
+    assert.equal(fs.existsSync(`${output}.tmp-${process.pid}`), false);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("report-aggregate CLI exposes weekly, monthly, and custom bounded summaries", () => {
+  const root = temporaryVault();
+  try {
+    fs.writeFileSync(path.join(root, ".thirdspace", "workspace-index.yaml"), 'vault_root: "."\n', "utf8");
+    writeJson(path.join(root, ".thirdspace", "data", "daily-agent", "tasks.json"), {
+      version: "1.0", revision: 0, updated_at: null, tasks: [],
+    });
+    writeJson(path.join(root, ".thirdspace", "data", "daily-agent", "reading-queue.json"), {
+      version: "1.0", revision: 0, updated_at: null, items: [], candidates: [], dismissed_source_paths: [],
+    });
+    writeJson(path.join(root, ".thirdspace", "data", "daily-agent", "project-index.json"), {
+      version: "1.0", revision: 0, updated_at: null, projects: [],
+    });
+    writeNormalizedEvents(root, "202608", [normalizedCommit("cli-commit", "2026-08-22T09:00:00+08:00")]);
+
+    const weekly = runCli(root, "report-aggregate", "--kind", "weekly", "--date", "2026-08-23", "--vault", root);
+    assert.equal(weekly.path, path.join(root, ".thirdspace", "data", "daily-agent", "report-input", "2026-W34.json"));
+    assert.deepEqual(weekly.summary, { commits: 1, token_sessions: 0, completed_tasks: 0, processed_readings: 0 });
+    assert.equal(JSON.stringify(weekly).includes("cli-commit"), false);
+
+    const monthly = runCli(root, "report-aggregate", "--kind", "monthly", "--date", "2026-08-01", "--vault", root);
+    assert.match(monthly.path, /2026-08\.json$/);
+
+    const custom = runCli(root, "report-aggregate", "--start", "2026-08-01", "--end", "2026-08-15", "--vault", root);
+    assert.match(custom.path, /20260801-20260815\.json$/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
 
 test("remote source config accepts the template subset and rejects unsafe or ambiguous sources", () => {
   const root = temporaryVault();
