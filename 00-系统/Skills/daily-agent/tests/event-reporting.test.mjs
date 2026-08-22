@@ -9,6 +9,7 @@ import { aggregateReport, resolvePeriod } from "../scripts/lib/aggregator.mjs";
 import { loadRemoteSources } from "../scripts/lib/remote-config.mjs";
 import { syncRemoteSources } from "../scripts/lib/remote-sync.mjs";
 import { normalizeEvents } from "../scripts/lib/normalizer.mjs";
+import { renderReview, writeReview } from "../scripts/lib/reviews.mjs";
 
 function temporaryVault() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "daily-agent-events-"));
@@ -150,6 +151,116 @@ function normalizedToken(eventId, timestamp, input = {}) {
     raw_line: "must-not-leak",
   };
 }
+
+function reportInput(overrides = {}) {
+  return {
+    version: "1.0",
+    generated_at: "2026-08-24T08:00:00+08:00",
+    period: {
+      id: "2026-W34", kind: "weekly", timezone: "Asia/Shanghai",
+      start: "2026-08-17T00:00:00+08:00", end: "2026-08-24T00:00:00+08:00",
+    },
+    git: {
+      total: { commits: 1, files_changed: 2, lines_added: 10, lines_deleted: 1 },
+      by_project: {
+        project_research: {
+          commits: 1, files_changed: 2, lines_added: 10, lines_deleted: 1,
+          by_repo: {
+            "research-code": {
+              commits: 1, files_changed: 2, lines_added: 10, lines_deleted: 1,
+              evidence: [{ commit: "abc123", timestamp: "2026-08-20T09:00:00+08:00", branch: "main", summary: "Add evidence" }],
+            },
+          },
+        },
+      },
+    },
+    tokens: {
+      total_sessions: 1,
+      by_model: {
+        "gpt-5": {
+          sessions: 1, input_tokens: 100, output_tokens: 20, cache_read_tokens: null,
+          cache_write_tokens: null, total_tokens: 120,
+        },
+      },
+    },
+    tasks: {
+      completed: [{ id: "task-complete", title: "Finished", status: "completed", priority: "high", project_id: "project_research", due: null, completed_at: "2026-08-20T12:00:00+08:00" }],
+      carryover: [{ id: "task-active", title: "Continue", status: "active", priority: "normal", project_id: null, due: "2026-08-30", completed_at: null }],
+    },
+    reading: {
+      processed: [{ id: "reading-done", kind: "paper", title: "Read", source_path: "01-收件箱/read.md", status: "processed", added_at: "2026-08-10T09:00:00+08:00", processed_at: "2026-08-18T09:00:00+08:00", output_path: "03-知识/read.md" }],
+      backlog: [{ id: "reading-pending", kind: "blog", title: "Pending", source_path: "01-收件箱/pending.md", status: "pending", added_at: "2026-08-19T09:00:00+08:00", processed_at: null, output_path: null }],
+    },
+    projects: {
+      active: [{ id: "project_research", name: "Research", path: "04-项目/Research", stage: "active" }],
+      without_activity: [],
+    },
+    coverage: { sources: ["183"], rejected_events: 1, unmapped_repos: [], missing_token_fields: 2 },
+    ...overrides,
+  };
+}
+
+test("weekly reviews render evidence, coverage warnings, and preserve user text outside managed markers", () => {
+  const root = temporaryVault();
+  try {
+    const context = { vaultRoot: root, now: "2026-08-24T08:00:00+08:00" };
+    const first = writeReview(context, reportInput());
+    const initial = fs.readFileSync(first.path, "utf8");
+
+    assert.equal(first.path, path.join(root, "02-日记", "复盘", "20260823_周报_2026-W34.md"));
+    assert.equal(first.updated, true);
+    assert.match(initial, /^---\ntitle: "周报：2026-W34"\ntype: "review"\ntopic: "work"\nworkspace: "02-日记"\ncreated: "2026-08-24T08:00:00\+08:00"\nmodified: "2026-08-24T08:00:00\+08:00"\nstatus: "active"\n---/);
+    for (const heading of ["总览", "事项与阅读", "项目与 Git", "Token 用量", "数据覆盖", "Agent 评价"]) {
+      assert.match(initial, new RegExp(`## ${heading}`));
+    }
+    assert.match(initial, /`task-complete`/);
+    assert.match(initial, /\[Read\]\(\.\.\/\.\.\/01-收件箱\/read\.md\)/);
+    assert.match(initial, /`abc123`/);
+    assert.match(initial, /Token 字段缺失 2 项，相关统计不完整。/);
+    assert.match(initial, /归一化拒绝 1 条事件，结论需结合该缺口阅读。/);
+    assert.match(renderReview(reportInput()), /<!-- daily-agent:report:start -->/);
+
+    fs.appendFileSync(first.path, "\n## 我的补充\n\n保留这段。\n", "utf8");
+    const changed = reportInput({
+      generated_at: "2026-08-25T08:00:00+08:00",
+      coverage: { sources: ["183"], rejected_events: 1, unmapped_repos: [], missing_token_fields: 0 },
+    });
+    const second = writeReview({ ...context, now: "2026-08-25T08:00:00+08:00" }, changed);
+    const regenerated = fs.readFileSync(first.path, "utf8");
+
+    assert.deepEqual(second, { path: first.path, updated: true });
+    assert.match(regenerated, /## 我的补充\n\n保留这段。/);
+    assert.equal((regenerated.match(/<!-- daily-agent:report:start -->/g) || []).length, 1);
+    assert.match(regenerated, /created: "2026-08-24T08:00:00\+08:00"/);
+    assert.match(regenerated, /modified: "2026-08-24T08:00:00\+08:00"/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("review-generate accepts saved bounded input and records the matching review timestamp", () => {
+  const root = temporaryVault();
+  try {
+    initializeAgentState(root);
+    fs.writeFileSync(path.join(root, ".thirdspace", "workspace-index.yaml"), 'vault_root: "."\n', "utf8");
+    const input = path.join(root, "review-input.json");
+    writeJson(input, reportInput({ period: {
+      id: "2026-08", kind: "monthly", timezone: "Asia/Shanghai",
+      start: "2026-08-01T00:00:00+08:00", end: "2026-09-01T00:00:00+08:00",
+    } }));
+
+    const result = runCli(root, "review-generate", "--kind", "monthly", "--date", "2026-08-24", "--input", input, "--vault", root);
+    const state = JSON.parse(fs.readFileSync(path.join(root, ".thirdspace", "data", "daily-agent", "agent-state.json"), "utf8"));
+
+    assert.equal(result.path, path.join(root, "02-日记", "复盘", "20260831_月报_2026-08.md"));
+    assert.equal(result.updated, true);
+    assert.equal(state.last_monthly_review, "2026-08-22T09:00:00+08:00");
+    assert.equal(state.last_weekly_review, null);
+    assert.equal(state.revision, 1);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
 
 test("report periods use Shanghai Monday/Sunday and calendar-month boundaries", () => {
   assert.deepEqual(resolvePeriod("weekly", "2026-08-23", "Asia/Shanghai"), {

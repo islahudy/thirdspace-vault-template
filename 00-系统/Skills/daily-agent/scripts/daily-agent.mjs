@@ -7,6 +7,8 @@ import { completeOpening, prepareOpening } from "./lib/opening.mjs";
 import { normalizeEvents } from "./lib/normalizer.mjs";
 import { confirmReadingCandidate, scanReadingInbox } from "./lib/reading.mjs";
 import { syncRemoteSources } from "./lib/remote-sync.mjs";
+import { validateReportInput, writeReview } from "./lib/reviews.mjs";
+import { mutateState } from "./lib/store.mjs";
 import { createTask, registerProject, transitionTask } from "./lib/tasks.mjs";
 
 function parseArgs(argv) {
@@ -48,6 +50,29 @@ function contextFor(args) {
     now: process.env.THIRDSPACE_NOW || new Date().toISOString(),
     force: args.force === true,
   };
+}
+
+function readReportInput(file) {
+  try {
+    return validateReportInput(JSON.parse(fs.readFileSync(file, "utf8")));
+  } catch (error) {
+    if (error instanceof SyntaxError) throw new Error(`invalid report input JSON: ${file}`);
+    throw error;
+  }
+}
+
+function updateReviewTimestamp(context, kind) {
+  const field = kind === "weekly" ? "last_weekly_review" : "last_monthly_review";
+  const stateFile = path.join(context.vaultRoot, ".thirdspace", "data", "daily-agent", "agent-state.json");
+  let current;
+  try {
+    current = JSON.parse(fs.readFileSync(stateFile, "utf8"));
+  } catch (error) {
+    if (error instanceof SyntaxError) throw new Error(`invalid JSON: ${stateFile}`);
+    throw error;
+  }
+  if (!current || current.version !== "1.0" || !Number.isInteger(current.revision)) throw new Error(`invalid agent state: ${stateFile}`);
+  mutateState(stateFile, current.revision, (state) => ({ ...state, [field]: context.now }), context.now);
 }
 
 function dispatch(args) {
@@ -96,6 +121,17 @@ function dispatch(args) {
         processed_readings: report.reading.processed.length,
       },
     };
+  }
+  if (command === "review-generate") {
+    if (!["weekly", "monthly"].includes(args.kind)) throw new Error("review-generate requires --kind weekly|monthly");
+    const inputPath = args.input && (path.isAbsolute(args.input) ? args.input : path.join(context.vaultRoot, args.input));
+    const report = inputPath
+      ? readReportInput(inputPath)
+      : aggregateReport(context, { kind: args.kind, referenceDate: args.date, timezone: args.timezone });
+    if (report.period.kind !== args.kind) throw new Error(`report kind mismatch: expected ${args.kind}, found ${report.period.kind}`);
+    const written = writeReview(context, report);
+    updateReviewTimestamp(context, args.kind);
+    return { ...written, period: report.period.id };
   }
   throw new Error(`unknown command: ${command || "missing"}`);
 }
