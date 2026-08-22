@@ -7,6 +7,7 @@ import test from "node:test";
 import { readState, mutateState } from "../scripts/lib/store.mjs";
 import { appendEvent, makeEventId } from "../scripts/lib/events.mjs";
 import { createTask, listOpeningTasks, registerProject, transitionTask } from "../scripts/lib/tasks.mjs";
+import { confirmReadingCandidate, scanReadingInbox } from "../scripts/lib/reading.mjs";
 
 function temporaryVault() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "daily-agent-"));
@@ -23,6 +24,9 @@ function initializeDailyState(root) {
   const stateRoot = path.join(root, ".thirdspace", "data", "daily-agent");
   writeJson(path.join(stateRoot, "tasks.json"), { version: "1.0", revision: 0, updated_at: null, tasks: [] });
   writeJson(path.join(stateRoot, "project-index.json"), { version: "1.0", revision: 0, updated_at: null, projects: [] });
+  writeJson(path.join(stateRoot, "reading-queue.json"), {
+    version: "1.0", revision: 0, updated_at: null, items: [], candidates: [], dismissed_source_paths: [],
+  });
 }
 
 function readEvents(root) {
@@ -132,4 +136,50 @@ test("task opening query assigns each task to one reminder group", () => {
     overdue: ["overdue"], dueSoon: ["soon"], upcoming: ["upcoming"],
     stale: ["stale"], waitingForReview: ["waiting"], active: ["active"],
   });
+});
+
+test("reading scan enrolls tagged items, reconciles processed state, and avoids duplicates", () => {
+  const root = temporaryVault();
+  try {
+    initializeDailyState(root);
+    const inbox = path.join(root, "01-收件箱", "网页剪藏");
+    fs.mkdirSync(inbox, { recursive: true });
+    const markdown = (title, tags, status, url = "") => `---\ntitle: "${title}"\ntype: "clipping"\ntopic: "ai"\nworkspace: "01-收件箱"\ncreated: "2026-08-22 08:00:00"\nmodified: "2026-08-22 08:00:00"\ntags: [${tags.join(", ")}]\nsource: "obsidian-clipper"\nstatus: "${status}"\nurl: "${url}"\n---\n\n# ${title}\n`;
+    fs.writeFileSync(path.join(inbox, "20260822_论文.md"), markdown("论文", ["paper", "agent"], "draft", "https://example.com/paper"));
+    fs.writeFileSync(path.join(inbox, "20260822_Blog.md"), markdown("Blog", ["blog"], "draft", "https://example.com/blog"));
+    fs.writeFileSync(path.join(inbox, "20260822_arxiv.md"), markdown("候选", ["ai"], "draft", "https://arxiv.org/abs/1234"));
+    fs.writeFileSync(path.join(inbox, "20260822_已处理.md"), markdown("已处理", ["paper"], "processed", "https://example.com/done"));
+    fs.writeFileSync(path.join(inbox, "20260822_想法.md"), markdown("临时想法", ["life"], "draft"));
+    const context = { vaultRoot: root, now: "2026-08-22T09:00:00+08:00" };
+    const first = scanReadingInbox(context);
+    assert.deepEqual(first.added.map((item) => item.kind).sort(), ["blog", "paper"]);
+    assert.equal(first.candidates.length, 1);
+    assert.equal(first.processed.length, 1);
+    const second = scanReadingInbox(context);
+    assert.equal(second.added.length, 0);
+    assert.equal(second.candidates.length, 0);
+    const state = readState(path.join(root, ".thirdspace", "data", "daily-agent", "reading-queue.json"), "items");
+    assert.equal(state.items.length, 3);
+    assert.equal(state.candidates.length, 1);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("rejected reading candidates remain dismissed across scans", () => {
+  const root = temporaryVault();
+  try {
+    initializeDailyState(root);
+    const inbox = path.join(root, "01-收件箱", "网页剪藏");
+    fs.mkdirSync(inbox, { recursive: true });
+    fs.writeFileSync(path.join(inbox, "20260822_候选.md"), '---\ntitle: "候选"\ntags: [ai]\nstatus: "draft"\nurl: "https://arxiv.org/abs/1234"\n---\n');
+    const context = { vaultRoot: root, now: "2026-08-22T09:00:00+08:00" };
+    const candidate = scanReadingInbox(context).candidates[0];
+    confirmReadingCandidate(context, candidate.id, "reject");
+    assert.equal(scanReadingInbox(context).candidates.length, 0);
+    const state = readState(path.join(root, ".thirdspace", "data", "daily-agent", "reading-queue.json"), "items");
+    assert.equal(state.dismissed_source_paths.length, 1);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });
