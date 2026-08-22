@@ -8,6 +8,7 @@ import { readState, mutateState } from "../scripts/lib/store.mjs";
 import { appendEvent, makeEventId } from "../scripts/lib/events.mjs";
 import { createTask, listOpeningTasks, registerProject, transitionTask } from "../scripts/lib/tasks.mjs";
 import { confirmReadingCandidate, scanReadingInbox } from "../scripts/lib/reading.mjs";
+import { completeOpening, prepareOpening } from "../scripts/lib/opening.mjs";
 
 function temporaryVault() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "daily-agent-"));
@@ -26,6 +27,12 @@ function initializeDailyState(root) {
   writeJson(path.join(stateRoot, "project-index.json"), { version: "1.0", revision: 0, updated_at: null, projects: [] });
   writeJson(path.join(stateRoot, "reading-queue.json"), {
     version: "1.0", revision: 0, updated_at: null, items: [], candidates: [], dismissed_source_paths: [],
+  });
+  writeJson(path.join(stateRoot, "agent-state.json"), {
+    version: "1.0", revision: 0, updated_at: null,
+    last_manual_checkin: null, last_daily_opening: null,
+    last_weekly_review: null, last_monthly_review: null,
+    last_remote_sync: {}, pending_confirmations: [],
   });
 }
 
@@ -179,6 +186,35 @@ test("rejected reading candidates remain dismissed across scans", () => {
     assert.equal(scanReadingInbox(context).candidates.length, 0);
     const state = readState(path.join(root, ".thirdspace", "data", "daily-agent", "reading-queue.json"), "items");
     assert.equal(state.dismissed_source_paths.length, 1);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("daily opening prepares prompts and completes one idempotent plan snapshot", () => {
+  const root = temporaryVault();
+  try {
+    initializeDailyState(root);
+    fs.mkdirSync(path.join(root, "01-收件箱"), { recursive: true });
+    const context = { vaultRoot: root, now: "2026-08-22T09:00:00+08:00" };
+    const task = createTask(context, { title: "准备组会", priority: "high", tags: ["科研"] });
+    const prepared = prepareOpening(context);
+    assert.equal(prepared.required, true);
+    assert.equal(prepared.date, "2026-08-22");
+    assert.equal(prepared.prompts.completionReview, "昨天及更早的事项中，哪些已经完成、取消或需要等待？");
+    assert.equal(prepared.prompts.todayPlan, "今天准备推进什么？请选择 1～3 个今日重点。");
+    const completed = completeOpening(context, { focusTaskIds: [task.id] });
+    const worklog = fs.readFileSync(completed.worklogPath, "utf8");
+    assert.equal((worklog.match(/^## 今日重点$/gm) || []).length, 1);
+    assert.equal((worklog.match(/^## 今日计划快照$/gm) || []).length, 1);
+    assert.match(worklog, /- \[high\] 准备组会/);
+    assert.equal(completed.state.last_daily_opening, "2026-08-22");
+    assert.equal(readEvents(root).at(-1).event_type, "daily_plan_created");
+    assert.deepEqual(prepareOpening(context), { required: false, date: "2026-08-22" });
+    completeOpening({ ...context, force: true }, { focusTaskIds: [task.id] });
+    const repeated = fs.readFileSync(completed.worklogPath, "utf8");
+    assert.equal((repeated.match(/^## 今日重点$/gm) || []).length, 1);
+    assert.equal((repeated.match(/^## 今日计划快照$/gm) || []).length, 1);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
