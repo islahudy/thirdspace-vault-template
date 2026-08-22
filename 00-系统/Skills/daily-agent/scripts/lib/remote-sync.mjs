@@ -5,6 +5,19 @@ import path from "node:path";
 import { validateRemoteSource, loadRemoteSources } from "./remote-config.mjs";
 import { readState, mutateState } from "./store.mjs";
 
+const REMOTE_ERROR_LIMIT = 240;
+
+function boundedRemoteError(error) {
+  const source = error instanceof Error ? error.message : String(error);
+  const singleLine = source
+    .replace(/[\u0000-\u001f\u007f-\u009f]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim() || "remote source failed";
+  return singleLine.length <= REMOTE_ERROR_LIMIT
+    ? singleLine
+    : `${singleLine.slice(0, REMOTE_ERROR_LIMIT - 1)}…`;
+}
+
 function resolveConfigPath(vaultRoot, configPath) {
   return path.isAbsolute(configPath) ? configPath : path.join(vaultRoot, configPath);
 }
@@ -99,7 +112,7 @@ export function syncRemoteSources(context, { configPath, fetchSource = fetchRemo
       }
       succeeded.push({ source_id: source.source_id, raw_path: rawPath });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = boundedRemoteError(error);
       try {
         updateSourceState(context, source.source_id, "failed", message);
       } catch {

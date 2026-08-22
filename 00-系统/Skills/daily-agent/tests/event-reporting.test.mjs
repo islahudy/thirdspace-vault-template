@@ -293,6 +293,37 @@ test("review-generate accepts saved bounded input and records the matching revie
   }
 });
 
+test("review-generate consumes the report-aggregate returned artifact without reaggregation", () => {
+  const root = temporaryVault();
+  try {
+    initializeAgentState(root);
+    fs.writeFileSync(path.join(root, ".thirdspace", "workspace-index.yaml"), 'vault_root: "."\n', "utf8");
+    writeJson(path.join(root, ".thirdspace", "data", "daily-agent", "tasks.json"), {
+      version: "1.0", revision: 0, updated_at: null, tasks: [],
+    });
+    writeJson(path.join(root, ".thirdspace", "data", "daily-agent", "reading-queue.json"), {
+      version: "1.0", revision: 0, updated_at: null, items: [], candidates: [], dismissed_source_paths: [],
+    });
+    writeJson(path.join(root, ".thirdspace", "data", "daily-agent", "project-index.json"), {
+      version: "1.0", revision: 0, updated_at: null, projects: [],
+    });
+    writeNormalizedEvents(root, "202608", [
+      normalizedCommit("saved-input-commit", "2026-08-22T09:00:00+08:00", { project_id: null }),
+    ]);
+
+    const aggregate = runCli(root, "report-aggregate", "--kind", "weekly", "--date", "2026-08-23", "--vault", root);
+    fs.writeFileSync(path.join(root, ".thirdspace", "data", "daily-agent", "tasks.json"), "not-json\n", "utf8");
+
+    const review = runCli(root, "review-generate", "--kind", "weekly", "--date", "2026-08-23", "--input", aggregate.path, "--vault", root);
+    const markdown = fs.readFileSync(review.path, "utf8");
+
+    assert.equal(review.period, "2026-W34");
+    assert.match(markdown, /saved-input-commit-sha/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("report periods use Shanghai Monday/Sunday and calendar-month boundaries", () => {
   assert.deepEqual(resolvePeriod("weekly", "2026-08-23", "Asia/Shanghai"), {
     id: "2026-W34",
@@ -524,6 +555,32 @@ test("remote synchronization isolates failures, atomically replaces raw snapshot
       broken: { synced_at: "2026-08-22T09:00:00+08:00", status: "failed", error: "unreachable" },
     });
     assert.equal(state.revision, 2);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("remote synchronization strips control characters and caps source errors before CLI output", () => {
+  const root = temporaryVault();
+  try {
+    initializeAgentState(root);
+    const configPath = writeConfig(root, `version: "1.0"\nsources:\n  - source_id: "broken"\n    ssh_host: "broken"\n    remote_path: "/nas/users/broken.ndjson"\n    enabled: true\n`);
+    const sourceMessage = `connection refused\nretry\u0007 details ${"x".repeat(400)}`;
+
+    const result = syncRemoteSources({ vaultRoot: root, now: "2026-08-22T09:00:00+08:00" }, {
+      configPath,
+      fetchSource() {
+        throw new Error(sourceMessage);
+      },
+    });
+    const error = result.failed[0].error;
+    const state = JSON.parse(fs.readFileSync(path.join(root, ".thirdspace", "data", "daily-agent", "agent-state.json"), "utf8"));
+
+    assert.equal(error.length, 240);
+    assert.equal(error.startsWith("connection refused retry details "), true);
+    assert.equal(error.endsWith("…"), true);
+    assert.doesNotMatch(error, /[\u0000-\u001f\u007f-\u009f]/);
+    assert.equal(state.last_remote_sync.broken.error, error);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

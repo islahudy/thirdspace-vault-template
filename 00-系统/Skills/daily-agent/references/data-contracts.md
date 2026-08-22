@@ -59,6 +59,6 @@ Raw and normalized NDJSON are private script inputs. They are never Agent readin
 
 `report-aggregate` writes a bounded `version: "1.0"` object under `.thirdspace/data/daily-agent/report-input/<period-id>.json`. It contains only the period, aggregate Git/Token metrics, projected task/reading/project fields, and coverage counts. It excludes raw lines, file contents, prompts, transcripts, and arbitrary event fields.
 
-Report inputs are generated local state and remain ignored by Git. The Agent consumes only the CLI-returned path and bounded summary; `review-generate` reads the saved report input as a script implementation detail.
+Report inputs are generated local state and remain ignored by Git. The Agent consumes only the CLI-returned path and bounded summary, then passes that exact path to `review-generate --input <path>`; the generator reads the saved report input as a script implementation detail without reaggregation.
 
 See `remote-event-protocol.md` for producer and normalization rules, and `reporting.md` for weekly/monthly generation.

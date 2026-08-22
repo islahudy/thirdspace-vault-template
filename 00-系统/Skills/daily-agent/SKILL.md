@@ -37,6 +37,7 @@ If `opening` returns `required: false`, do not repeat the flow unless the user e
 | Create/update tasks, confirm completion, enroll explicit `paper/blog`, write plan snapshot | Automatic |
 | Detect an uncertain reading candidate | Automatic discovery only |
 | Accept/reject a candidate, cancel a task, change project stage, move/archive/publish | Ask first |
+| Install or configure remote producers, hooks, event paths, SSH aliases, or remote sources | Never automatic; the user must perform it or explicitly confirm the exact action first |
 | Delete history, rewrite raw events, change Git history, store secrets | Never |
 
 ## Remote Reporting Flow
@@ -70,8 +71,8 @@ node scripts/daily-agent.mjs reading-confirm --vault {VAULT} --id ID --decision 
 node scripts/daily-agent.mjs opening-complete --vault {VAULT} --focus ID1,ID2
 node scripts/daily-agent.mjs remote-sync --vault {VAULT}
 node scripts/daily-agent.mjs events-normalize --vault {VAULT}
-node scripts/daily-agent.mjs report-aggregate --vault {VAULT} --kind weekly --date YYYY-MM-DD
-node scripts/daily-agent.mjs review-generate --vault {VAULT} --kind weekly --date YYYY-MM-DD
+node scripts/daily-agent.mjs report-aggregate --vault {VAULT} --kind weekly --date YYYY-MM-DD  # save returned `path` as REPORT_INPUT_PATH
+node scripts/daily-agent.mjs review-generate --vault {VAULT} --kind weekly --date YYYY-MM-DD --input {REPORT_INPUT_PATH}
 ```
 
 All commands return one JSON value. On error, stop and report stderr; do not repair or overwrite damaged state.

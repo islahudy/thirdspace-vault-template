@@ -18,6 +18,8 @@ Remote hosts do not need a Vault. They run the portable assets in `00-系统/运
 
 The remote file is append-only. Corrections use a new event. Producers must not truncate, rotate, upload, or rewrite it. See `00-系统/运行时/remote-events/README.md` for permissions, installation, hook wrappers, and concurrency limitations.
 
+Remote installation and configuration are never automatic. The user must either perform them directly or explicitly confirm the exact remote host, event path, hook, and configuration change before the Agent takes any such action. Merely requesting synchronization or a review does not authorize remote installation or configuration.
+
 ## Local Configuration
 
 Copy `.thirdspace/schema/remote-event-sources.example.yaml` to `.thirdspace/config/remote-event-sources.local.yaml` and edit only the local copy:
@@ -49,4 +51,4 @@ node scripts/daily-agent.mjs events-normalize --vault {VAULT}
 
 ## Agent Output
 
-Raw and normalized files are implementation inputs for these scripts, not Agent reading targets. The Agent must not open them or put their contents into model context. Report only success/failure counts, accepted/duplicate/rejected counts, generated paths, and a short bounded coverage warning. On error, stop and surface a bounded error summary without inspecting or rewriting the event stream.
+Raw and normalized files are implementation inputs for these scripts, not Agent reading targets. The Agent must not open them or put their contents into model context. Report only success/failure counts, accepted/duplicate/rejected counts, generated paths, and a short bounded coverage warning. Per-source synchronization errors are sanitized to one line and capped at 240 characters before state storage or CLI output. On error, stop and surface that bounded summary without inspecting or rewriting the event stream.

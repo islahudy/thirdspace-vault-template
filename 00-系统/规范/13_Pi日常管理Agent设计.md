@@ -310,7 +310,7 @@ sources:
 2. 保存原始副本。
 3. 逐行校验 JSON，隔离损坏行。
 4. 按 `source_id + event_id` 去重。
-5. 根据 `repo_projects` 补 `project_id`。
+5. 根据 `repo_mappings` 补 `project_id`。
 6. 写入 normalized 事件流并更新同步游标。
 
 单个服务器不可访问时不阻断报告生成；报告必须明确标注该来源数据缺失。
@@ -347,7 +347,7 @@ sources:
 remote-sync -> events-normalize -> report-aggregate -> review-generate
 ```
 
-`report-aggregate` 只生成有界 `ReportInput`，排除原始行、Prompt、Transcript、文件内容和任意事件字段；`review-generate` 由脚本读取该输入并保留受管标记外的用户文字。Agent 只输出计数、生成路径、commit/Token session/完成事项/已处理阅读的有界合计，以及简短覆盖缺口警告。
+`report-aggregate` 只生成有界 `ReportInput`，排除原始行、Prompt、Transcript、文件内容和任意事件字段；Agent 保存该命令返回的 `path`，并原样传给 `review-generate --input <path>`，不在生成步骤重新聚合。`review-generate` 由脚本读取该输入并保留受管标记外的用户文字。Agent 只输出计数、生成路径、commit/Token session/完成事项/已处理阅读的有界合计，以及简短覆盖缺口警告。
 
 ## 9. 自治权限
 

@@ -40,7 +40,7 @@ cat "$VAULT/.thirdspace/workspace-index.yaml"
 
 1. 按 `remote-events/README.md` 将生产器复制到远端主机；生产器只追加元数据和聚合计数。
 2. 在本机从 `.thirdspace/schema/remote-event-sources.example.yaml` 复制出 `.thirdspace/config/remote-event-sources.local.yaml`，填写 SSH alias 和绝对远端路径。该文件仅留在本机。
-3. 由 Daily Agent 按 `remote-sync -> events-normalize -> report-aggregate -> review-generate` 执行。
+3. 由 Daily Agent 按 `remote-sync -> events-normalize -> report-aggregate -> review-generate` 执行；把 `report-aggregate` 返回的 `path` 传给 `review-generate --input <path>`，不重新聚合。
 
 NDJSON 原始副本和归一化流只是脚本输入，不是 Agent 读取目标。Agent 只向用户展示计数、生成路径和有界聚合摘要。单个远端来源失败时保留其他来源结果，并在报告中标记覆盖缺口。
 
