@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { completeOpening, prepareOpening } from "./lib/opening.mjs";
+import { normalizeEvents } from "./lib/normalizer.mjs";
 import { confirmReadingCandidate, scanReadingInbox } from "./lib/reading.mjs";
 import { syncRemoteSources } from "./lib/remote-sync.mjs";
 import { createTask, registerProject, transitionTask } from "./lib/tasks.mjs";
@@ -76,6 +77,7 @@ function dispatch(args) {
     }
     return syncRemoteSources(context, { configPath: resolvedConfig });
   }
+  if (command === "events-normalize") return normalizeEvents(context);
   throw new Error(`unknown command: ${command || "missing"}`);
 }
 
