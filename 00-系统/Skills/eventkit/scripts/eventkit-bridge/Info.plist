@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>NSCalendarsFullAccessUsageDescription</key>
+  <string>Allow Pi Agent to read and manage calendar events.</string>
+  <key>NSRemindersFullAccessUsageDescription</key>
+  <string>Allow Pi Agent to read and manage reminders.</string>
+</dict>
+</plist>
