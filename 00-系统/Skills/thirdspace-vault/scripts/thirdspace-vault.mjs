@@ -505,7 +505,7 @@ function initVault(vaultRoot, args = {}) {
       dirs += 1;
     }
   }
-  for (const dir of ["schema", "queues", "manifests", "reports", "data/lifeos"]) {
+  for (const dir of ["schema", "queues", "manifests", "reports", "data/lifeos", "data/daily-agent"]) {
     ensureDir(path.join(vaultRoot, ".thirdspace", dir));
     dirs += 1;
   }
@@ -518,9 +518,23 @@ function initVault(vaultRoot, args = {}) {
   const emptyPeopleStore = `${JSON.stringify({ version: "1.0", people: [] }, null, 2)}\n`;
   files += writeIfMissing(path.join(vaultRoot, "05-资源", "人物档案", "people.json"), emptyPeopleStore) ? 1 : 0;
   files += writeIfMissing(path.join(vaultRoot, ".thirdspace", "data", "lifeos", "people.json"), emptyPeopleStore) ? 1 : 0;
+  const dailyAgentState = {
+    "tasks.json": { version: "1.0", revision: 0, updated_at: null, tasks: [] },
+    "reading-queue.json": { version: "1.0", revision: 0, updated_at: null, items: [], candidates: [], dismissed_source_paths: [] },
+    "project-index.json": { version: "1.0", revision: 0, updated_at: null, projects: [] },
+    "agent-state.json": {
+      version: "1.0", revision: 0, updated_at: null,
+      last_manual_checkin: null, last_daily_opening: null,
+      last_weekly_review: null, last_monthly_review: null,
+      last_remote_sync: {}, pending_confirmations: [],
+    },
+  };
+  for (const [name, value] of Object.entries(dailyAgentState)) {
+    files += writeIfMissing(path.join(vaultRoot, ".thirdspace", "data", "daily-agent", name), `${JSON.stringify(value, null, 2)}\n`) ? 1 : 0;
+  }
   files += writeIfMissing(path.join(vaultRoot, ".thirdspace", "workspace-index.yaml"), renderWorkspaceIndex(vaultRoot)) ? 1 : 0;
   const sourceSchemaRoot = path.resolve(path.dirname(scriptFilePath()), "..", "..", "..", "..", ".thirdspace", "schema");
-  for (const schema of ["taxonomy.yaml", "frontmatter.yaml", "subsystems.yaml", "event-capture.yaml", "workspace-tools.yaml"]) {
+  for (const schema of ["taxonomy.yaml", "frontmatter.yaml", "subsystems.yaml", "event-capture.yaml", "workspace-tools.yaml", "daily-agent.yaml"]) {
     const source = path.join(sourceSchemaRoot, schema);
     if (!fs.existsSync(source)) throw new Error(`canonical schema missing: ${source}`);
     files += writeIfMissing(path.join(vaultRoot, ".thirdspace", "schema", schema), fs.readFileSync(source, "utf8")) ? 1 : 0;

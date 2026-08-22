@@ -1,0 +1,28 @@
+# Pi 日常管理 Agent 机器契约
+version: "1.0"
+state_root: ".thirdspace/data/daily-agent"
+
+files:
+  tasks: "tasks.json"
+  reading_queue: "reading-queue.json"
+  project_index: "project-index.json"
+  agent_state: "agent-state.json"
+
+task:
+  status_values: [inbox, active, waiting, completed, cancelled]
+  priority_values: [critical, high, normal, low]
+
+reading:
+  kind_values: [paper, blog]
+  status_values: [pending, reading, processed, skipped]
+  auto_tags: [paper, blog]
+  stale_after_days: 7
+
+opening:
+  due_soon_hours: 24
+  upcoming_days: 3
+
+permissions:
+  auto: [create_task, update_task, confirm_completion, enroll_tagged_reading, write_daily_plan, append_event]
+  confirm: [cancel_task, enroll_candidate, change_project_stage, move_workspace, archive_project, publish_external]
+  deny: [delete_history, rewrite_raw_event, modify_git_history, store_secret]

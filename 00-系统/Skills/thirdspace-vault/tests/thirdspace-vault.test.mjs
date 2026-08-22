@@ -41,12 +41,41 @@ test("init creates exactly the canonical schema set", () => {
     run("init", "--vault", target);
     const schemas = fs.readdirSync(path.join(target, ".thirdspace", "schema")).sort();
     assert.deepEqual(schemas, [
+      "daily-agent.yaml",
       "event-capture.yaml",
       "frontmatter.yaml",
       "subsystems.yaml",
       "taxonomy.yaml",
       "workspace-tools.yaml",
     ]);
+  } finally {
+    fs.rmSync(target, { recursive: true, force: true });
+  }
+});
+
+test("init creates canonical daily-agent state without overwriting it", () => {
+  const target = fs.mkdtempSync(path.join(os.tmpdir(), "thirdspace-daily-agent-"));
+  try {
+    run("init", "--vault", target);
+    const root = path.join(target, ".thirdspace", "data", "daily-agent");
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, "tasks.json"), "utf8")), {
+      version: "1.0", revision: 0, updated_at: null, tasks: [],
+    });
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, "reading-queue.json"), "utf8")), {
+      version: "1.0", revision: 0, updated_at: null, items: [], candidates: [], dismissed_source_paths: [],
+    });
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, "project-index.json"), "utf8")), {
+      version: "1.0", revision: 0, updated_at: null, projects: [],
+    });
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, "agent-state.json"), "utf8")), {
+      version: "1.0", revision: 0, updated_at: null,
+      last_manual_checkin: null, last_daily_opening: null,
+      last_weekly_review: null, last_monthly_review: null,
+      last_remote_sync: {}, pending_confirmations: [],
+    });
+    fs.writeFileSync(path.join(root, "tasks.json"), '{"version":"1.0","revision":7,"updated_at":null,"tasks":[]}\n');
+    run("init", "--vault", target);
+    assert.equal(JSON.parse(fs.readFileSync(path.join(root, "tasks.json"), "utf8")).revision, 7);
   } finally {
     fs.rmSync(target, { recursive: true, force: true });
   }
