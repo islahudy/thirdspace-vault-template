@@ -1,0 +1,14 @@
+{
+  "name": "thirdspace-dashboard",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "esbuild src/main.mjs --bundle --external:obsidian --format=cjs --platform=browser --outfile=main.js",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "obsidian": "1.13.1"
+  }
+}

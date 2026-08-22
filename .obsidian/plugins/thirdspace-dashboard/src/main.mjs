@@ -1,42 +1,22 @@
-var __defProp = Object.defineProperty;
-var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
-var __getOwnPropNames = Object.getOwnPropertyNames;
-var __hasOwnProp = Object.prototype.hasOwnProperty;
-var __export = (target, all) => {
-  for (var name in all)
-    __defProp(target, name, { get: all[name], enumerable: true });
-};
-var __copyProps = (to, from, except, desc) => {
-  if (from && typeof from === "object" || typeof from === "function") {
-    for (let key of __getOwnPropNames(from))
-      if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
-  }
-  return to;
-};
-var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+import { ItemView, Modal, Notice, Plugin } from "obsidian";
 
-// src/main.mjs
-var main_exports = {};
-__export(main_exports, {
-  default: () => ThirdSpaceDashboard
-});
-module.exports = __toCommonJS(main_exports);
-var import_obsidian = require("obsidian");
-var VIEW_TYPE = "thirdspace-dashboard";
-var WORKSPACES = ["00-\u7CFB\u7EDF", "01-\u6536\u4EF6\u7BB1", "02-\u65E5\u8BB0", "03-\u77E5\u8BC6", "04-\u9879\u76EE", "05-\u8D44\u6E90", "06-\u8F93\u51FA", "99-\u5F52\u6863"];
-function dateKey(date = /* @__PURE__ */ new Date()) {
+const VIEW_TYPE = "thirdspace-dashboard";
+const WORKSPACES = ["00-系统", "01-收件箱", "02-日记", "03-知识", "04-项目", "05-资源", "06-输出", "99-归档"];
+
+function dateKey(date = new Date()) {
   return new Intl.DateTimeFormat("sv-SE").format(date).replaceAll("-", "");
 }
+
 function relativeAge(milliseconds) {
-  const days = Math.floor(milliseconds / 864e5);
+  const days = Math.floor(milliseconds / 86_400_000);
   if (days <= 0) return "today";
   if (days === 1) return "1d";
   if (days < 7) return `${days}d`;
   if (days < 30) return `${Math.floor(days / 7)}w`;
   return `${Math.floor(days / 30)}mo`;
 }
-var QuickNoteModal = class extends import_obsidian.Modal {
+
+class QuickNoteModal extends Modal {
   constructor(app, onSubmit) {
     super(app);
     this.onSubmit = onSubmit;
@@ -44,40 +24,33 @@ var QuickNoteModal = class extends import_obsidian.Modal {
   onOpen() {
     const { contentEl } = this;
     contentEl.addClass("ts-modal");
-    contentEl.createEl("h3", { text: "\u65B0\u7B14\u8BB0" });
+    contentEl.createEl("h3", { text: "新笔记" });
     const input = contentEl.createEl("input", { type: "text", cls: "ts-modal-input" });
-    input.placeholder = "\u8F93\u5165\u6807\u9898";
+    input.placeholder = "输入标题";
     const submit = () => {
       const value = input.value.trim();
       if (value) this.onSubmit(value);
       this.close();
     };
-    contentEl.createEl("button", { text: "\u521B\u5EFA", cls: "mod-cta" }).addEventListener("click", submit);
+    contentEl.createEl("button", { text: "创建", cls: "mod-cta" }).addEventListener("click", submit);
     input.addEventListener("keydown", (event) => event.key === "Enter" && submit());
     input.focus();
   }
-  onClose() {
-    this.contentEl.empty();
-  }
-};
-var ThirdSpaceView = class extends import_obsidian.ItemView {
+  onClose() { this.contentEl.empty(); }
+}
+
+class ThirdSpaceView extends ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.plugin = plugin;
     this.timer = null;
   }
-  getViewType() {
-    return VIEW_TYPE;
-  }
-  getDisplayText() {
-    return "ThirdSpace";
-  }
-  getIcon() {
-    return "layout-dashboard";
-  }
+  getViewType() { return VIEW_TYPE; }
+  getDisplayText() { return "ThirdSpace"; }
+  getIcon() { return "layout-dashboard"; }
   async onOpen() {
     await this.render();
-    this.timer = window.setInterval(() => this.render(), 6e4);
+    this.timer = window.setInterval(() => this.render(), 60_000);
   }
   async onClose() {
     if (this.timer) window.clearInterval(this.timer);
@@ -94,7 +67,7 @@ var ThirdSpaceView = class extends import_obsidian.ItemView {
     const header = contentEl.createDiv({ cls: "ts-hdr" });
     header.createDiv({ cls: "ts-vault-title", text: this.app.vault.getName() });
     header.createDiv({ cls: "ts-pill ts-pill--ok", text: `${WORKSPACES.length} workspaces` });
-    const thisWeek = files.filter((file) => now - file.stat.mtime < 7 * 864e5).length;
+    const thisWeek = files.filter((file) => now - file.stat.mtime < 7 * 86_400_000).length;
     const stats = contentEl.createDiv({ cls: "ts-stats-row" });
     for (const item of [{ value: files.length, label: "files" }, { value: thisWeek, label: "this week" }, { value: WORKSPACES.length, label: "workspaces" }]) {
       const cell = stats.createDiv({ cls: "ts-stat-cell" });
@@ -113,12 +86,12 @@ var ThirdSpaceView = class extends import_obsidian.ItemView {
   }
   renderActivity(container, files, now) {
     const card = container.createDiv({ cls: "ts-card ts-heatmap-card" });
-    card.createDiv({ cls: "ts-card-label", text: "ACTIVITY \xB7 PAST 90 DAYS" });
+    card.createDiv({ cls: "ts-card-label", text: "ACTIVITY · PAST 90 DAYS" });
     const grid = card.createDiv({ cls: "ts-activity-grid" });
     for (let offset = 89; offset >= 0; offset -= 1) {
-      const start = new Date(now - offset * 864e5);
+      const start = new Date(now - offset * 86_400_000);
       start.setHours(0, 0, 0, 0);
-      const end = start.getTime() + 864e5;
+      const end = start.getTime() + 86_400_000;
       const count = files.filter((file) => file.stat.mtime >= start.getTime() && file.stat.mtime < end).length;
       grid.createSpan({ cls: `ts-activity-cell ts-level-${Math.min(4, count)}`, attr: { title: `${start.toLocaleDateString()}: ${count}` } });
     }
@@ -133,19 +106,19 @@ var ThirdSpaceView = class extends import_obsidian.ItemView {
       const row = grid.createDiv({ cls: "ts-ws-card" });
       row.createDiv({ cls: "ts-ws-name", text: workspace.replace(/^\d+-/, "") });
       row.createDiv({ cls: "ts-ws-count", text: `${files.length} files` });
-      row.createDiv({ cls: "ts-ws-time", text: latest ? `active ${relativeAge(now - latest)}` : "\u2014" });
+      row.createDiv({ cls: "ts-ws-time", text: latest ? `active ${relativeAge(now - latest)}` : "—" });
       row.addEventListener("click", () => this.openMostRecent(workspace));
     }
   }
   renderTaskPlaceholder(container) {
     const card = container.createDiv({ cls: "ts-card ts-task-card" });
     card.createDiv({ cls: "ts-card-label", text: "TASKS" });
-    card.createDiv({ cls: "ts-empty", text: "Daily Agent task store loading\u2026" });
+    card.createDiv({ cls: "ts-empty", text: "Daily Agent task store loading…" });
   }
   renderToday(container) {
     const card = container.createDiv({ cls: "ts-card" });
     card.createDiv({ cls: "ts-card-label", text: "TODAY" });
-    const prefix = `02-\u65E5\u8BB0/\u5DE5\u4F5C\u65E5\u5FD7/${dateKey()}`;
+    const prefix = `02-日记/工作日志/${dateKey()}`;
     const file = this.app.vault.getMarkdownFiles().find((candidate) => candidate.path.startsWith(prefix));
     if (!file) card.createDiv({ cls: "ts-empty", text: "No worklog yet" });
     else {
@@ -157,7 +130,7 @@ var ThirdSpaceView = class extends import_obsidian.ItemView {
     const card = container.createDiv({ cls: "ts-card" });
     card.createDiv({ cls: "ts-card-label", text: "QUICK" });
     const actions = card.createDiv({ cls: "ts-act-grid" });
-    for (const [label, action] of [["\u65B0\u7B14\u8BB0", () => this.createNote()], ["\u4ECA\u65E5\u5FD7", () => this.openMostRecent("02-\u65E5\u8BB0/\u5DE5\u4F5C\u65E5\u5FD7")], ["\u6536\u4EF6\u7BB1", () => this.openMostRecent("01-\u6536\u4EF6\u7BB1")], ["\u641C\u7D22", () => this.app.commands.executeCommandById("global-search:open")]]) {
+    for (const [label, action] of [["新笔记", () => this.createNote()], ["今日志", () => this.openMostRecent("02-日记/工作日志")], ["收件箱", () => this.openMostRecent("01-收件箱")], ["搜索", () => this.app.commands.executeCommandById("global-search:open")]]) {
       actions.createEl("button", { cls: "ts-act-btn", text: label }).addEventListener("click", action);
     }
   }
@@ -172,38 +145,25 @@ var ThirdSpaceView = class extends import_obsidian.ItemView {
   async openMostRecent(prefix) {
     const file = this.app.vault.getFiles().filter((item) => item.path.startsWith(`${prefix}/`)).sort((a, b) => b.stat.mtime - a.stat.mtime)[0];
     if (file) await this.app.workspace.getLeaf(false).openFile(file);
-    else new import_obsidian.Notice(`No files under ${prefix}`);
+    else new Notice(`No files under ${prefix}`);
   }
   createNote() {
     new QuickNoteModal(this.app, async (title) => {
-      const path = `01-\u6536\u4EF6\u7BB1/\u5F85\u6574\u7406/${dateKey()}_${title.replace(/[\\/:*?"<>|\s]+/g, "_")}.md`;
-      const now = (/* @__PURE__ */ new Date()).toISOString();
-      const file = await this.app.vault.create(path, `---
-title: "${title.replaceAll('"', '\\"')}"
-type: "note"
-topic: "work"
-workspace: "01-\u6536\u4EF6\u7BB1"
-created: "${now}"
-modified: "${now}"
-tags: ["note", "draft"]
-source: "manual"
-status: "draft"
----
-
-`);
+      const path = `01-收件箱/待整理/${dateKey()}_${title.replace(/[\\/:*?"<>|\s]+/g, "_")}.md`;
+      const now = new Date().toISOString();
+      const file = await this.app.vault.create(path, `---\ntitle: "${title.replaceAll('"', '\\"')}"\ntype: "note"\ntopic: "work"\nworkspace: "01-收件箱"\ncreated: "${now}"\nmodified: "${now}"\ntags: ["note", "draft"]\nsource: "manual"\nstatus: "draft"\n---\n\n`);
       await this.app.workspace.getLeaf(false).openFile(file);
     }).open();
   }
-};
-var ThirdSpaceDashboard = class extends import_obsidian.Plugin {
+}
+
+export default class ThirdSpaceDashboard extends Plugin {
   async onload() {
     this.registerView(VIEW_TYPE, (leaf) => new ThirdSpaceView(leaf, this));
     this.addRibbonIcon("layout-dashboard", "ThirdSpace Dashboard", () => this.activateView());
     this.addCommand({ id: "open-dashboard", name: "Open ThirdSpace Dashboard", callback: () => this.activateView() });
   }
-  onunload() {
-    this.app.workspace.detachLeavesOfType(VIEW_TYPE);
-  }
+  onunload() { this.app.workspace.detachLeavesOfType(VIEW_TYPE); }
   async activateView() {
     const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];
     if (existing) return this.app.workspace.revealLeaf(existing);
@@ -213,4 +173,4 @@ var ThirdSpaceDashboard = class extends import_obsidian.Plugin {
       await this.app.workspace.revealLeaf(leaf);
     }
   }
-};
+}
