@@ -1,7 +1,49 @@
-import { ItemView, Modal, Notice, Plugin } from "obsidian";
+import { ItemView, Modal, Notice, Plugin, normalizePath } from "obsidian";
+import { parseState, prepareMutation } from "./state.mjs";
 
 const VIEW_TYPE = "thirdspace-dashboard";
 const WORKSPACES = ["00-系统", "01-收件箱", "02-日记", "03-知识", "04-项目", "05-资源", "06-输出", "99-归档"];
+const DAILY_ROOT = ".thirdspace/data/daily-agent";
+
+export class DailyAgentStore {
+  constructor(app) {
+    this.app = app;
+  }
+  path(name) { return normalizePath(`${DAILY_ROOT}/${name}`); }
+  async read(name, collection) {
+    const file = this.path(name);
+    return parseState(await this.app.vault.adapter.read(file), collection);
+  }
+  async mutate(name, collection, mutate, event) {
+    const file = this.path(name);
+    const current = await this.read(name, collection);
+    const now = new Date().toISOString();
+    const next = prepareMutation(current, current.revision, mutate, now);
+    const temporary = `${file}.tmp-dashboard`;
+    await this.app.vault.adapter.write(temporary, `${JSON.stringify(next, null, 2)}\n`);
+    try {
+      await this.app.vault.adapter.rename(temporary, file);
+    } catch (error) {
+      if (await this.app.vault.adapter.exists(temporary)) await this.app.vault.adapter.remove(temporary);
+      throw error;
+    }
+    try {
+      await this.appendEvent({ timestamp: now, source_id: "thirdspace-dashboard", ...event });
+    } catch (error) {
+      new Notice(`Task saved, event append failed: ${error.message}`);
+    }
+    return next;
+  }
+  async appendEvent(event) {
+    const required = ["event_id", "timestamp", "event_type", "source_id", "subject_id"];
+    for (const field of required) if (!event[field]) throw new Error(`event field required: ${field}`);
+    const date = event.timestamp.slice(0, 10).replaceAll("-", "");
+    const directory = normalizePath(".thirdspace/events/local");
+    if (!(await this.app.vault.adapter.exists(directory))) await this.app.vault.adapter.mkdir(directory);
+    const file = normalizePath(`${directory}/${date}.ndjson`);
+    await this.app.vault.adapter.append(file, `${JSON.stringify({ schema_version: "1.0", ...event })}\n`);
+  }
+}
 
 function dateKey(date = new Date()) {
   return new Intl.DateTimeFormat("sv-SE").format(date).replaceAll("-", "");
@@ -43,6 +85,7 @@ class ThirdSpaceView extends ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.plugin = plugin;
+    this.store = new DailyAgentStore(this.app);
     this.timer = null;
   }
   getViewType() { return VIEW_TYPE; }

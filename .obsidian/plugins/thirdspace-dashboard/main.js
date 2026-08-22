@@ -19,12 +19,80 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 // src/main.mjs
 var main_exports = {};
 __export(main_exports, {
+  DailyAgentStore: () => DailyAgentStore,
   default: () => ThirdSpaceDashboard
 });
 module.exports = __toCommonJS(main_exports);
 var import_obsidian = require("obsidian");
+
+// src/state.mjs
+function parseState(text, collection) {
+  let value;
+  try {
+    value = JSON.parse(text);
+  } catch {
+    throw new Error("invalid JSON");
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("invalid state root");
+  if (value.version !== "1.0") throw new Error(`unsupported version: ${value.version ?? "missing"}`);
+  if (!Number.isInteger(value.revision) || value.revision < 0) throw new Error("invalid revision");
+  if (!Array.isArray(value[collection])) throw new Error(`missing collection: ${collection}`);
+  return value;
+}
+function prepareMutation(current, expectedRevision, mutate, now) {
+  if (current.revision !== expectedRevision) throw new Error(`revision conflict: expected ${expectedRevision}, found ${current.revision}`);
+  const changed = mutate(structuredClone(current));
+  if (!changed || typeof changed !== "object" || Array.isArray(changed)) throw new Error("mutation must return an object");
+  return { ...changed, version: "1.0", revision: current.revision + 1, updated_at: now };
+}
+
+// src/main.mjs
 var VIEW_TYPE = "thirdspace-dashboard";
 var WORKSPACES = ["00-\u7CFB\u7EDF", "01-\u6536\u4EF6\u7BB1", "02-\u65E5\u8BB0", "03-\u77E5\u8BC6", "04-\u9879\u76EE", "05-\u8D44\u6E90", "06-\u8F93\u51FA", "99-\u5F52\u6863"];
+var DAILY_ROOT = ".thirdspace/data/daily-agent";
+var DailyAgentStore = class {
+  constructor(app) {
+    this.app = app;
+  }
+  path(name) {
+    return (0, import_obsidian.normalizePath)(`${DAILY_ROOT}/${name}`);
+  }
+  async read(name, collection) {
+    const file = this.path(name);
+    return parseState(await this.app.vault.adapter.read(file), collection);
+  }
+  async mutate(name, collection, mutate, event) {
+    const file = this.path(name);
+    const current = await this.read(name, collection);
+    const now = (/* @__PURE__ */ new Date()).toISOString();
+    const next = prepareMutation(current, current.revision, mutate, now);
+    const temporary = `${file}.tmp-dashboard`;
+    await this.app.vault.adapter.write(temporary, `${JSON.stringify(next, null, 2)}
+`);
+    try {
+      await this.app.vault.adapter.rename(temporary, file);
+    } catch (error) {
+      if (await this.app.vault.adapter.exists(temporary)) await this.app.vault.adapter.remove(temporary);
+      throw error;
+    }
+    try {
+      await this.appendEvent({ timestamp: now, source_id: "thirdspace-dashboard", ...event });
+    } catch (error) {
+      new import_obsidian.Notice(`Task saved, event append failed: ${error.message}`);
+    }
+    return next;
+  }
+  async appendEvent(event) {
+    const required = ["event_id", "timestamp", "event_type", "source_id", "subject_id"];
+    for (const field of required) if (!event[field]) throw new Error(`event field required: ${field}`);
+    const date = event.timestamp.slice(0, 10).replaceAll("-", "");
+    const directory = (0, import_obsidian.normalizePath)(".thirdspace/events/local");
+    if (!await this.app.vault.adapter.exists(directory)) await this.app.vault.adapter.mkdir(directory);
+    const file = (0, import_obsidian.normalizePath)(`${directory}/${date}.ndjson`);
+    await this.app.vault.adapter.append(file, `${JSON.stringify({ schema_version: "1.0", ...event })}
+`);
+  }
+};
 function dateKey(date = /* @__PURE__ */ new Date()) {
   return new Intl.DateTimeFormat("sv-SE").format(date).replaceAll("-", "");
 }
@@ -64,6 +132,7 @@ var ThirdSpaceView = class extends import_obsidian.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.plugin = plugin;
+    this.store = new DailyAgentStore(this.app);
     this.timer = null;
   }
   getViewType() {
