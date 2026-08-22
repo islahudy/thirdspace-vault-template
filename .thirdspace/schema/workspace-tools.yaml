@@ -62,9 +62,9 @@ workspace_skills:
 # ── Obsidian 插件（随 vault 分发）
 obsidian_plugins:
   thirdspace-dashboard:
-    desc: "知识库控制台：工作区统计、蛇形热力图、Todos、快捷操作"
+    desc: "知识库控制台：工作区统计、Daily Agent 事项、阅读积压与快捷操作"
     source_dir: ".obsidian/plugins/thirdspace-dashboard"
-    version: "0.1.0"
+    version: "0.2.0"
     required: true
     install_on_init: true
     enable_after_install: true
@@ -72,6 +72,11 @@ obsidian_plugins:
       - main.js
       - styles.css
       - manifest.json
+      - package.json
+      - package-lock.json
+      - src/main.mjs
+      - src/state.mjs
+      - src/models.mjs
 
 # ── 工具激活优先级规则
 routing_rules:

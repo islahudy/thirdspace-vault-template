@@ -37,7 +37,7 @@ cat "$VAULT/.thirdspace/workspace-index.yaml"
 
 ## Obsidian 插件
 
-插件随 vault 版本控制（`.obsidian/plugins/thirdspace-dashboard/`）。初始化后在 Obsidian 中：设置 → 第三方插件 → 启用 ThirdSpace Dashboard。
+插件随 vault 版本控制（`.obsidian/plugins/thirdspace-dashboard/`）。当前 `0.2.0` 直接读取 Daily Agent 的事项与阅读队列，并保留可复现的源码、测试和构建配置。初始化后在 Obsidian 中：设置 → 第三方插件 → 启用 ThirdSpace Dashboard。
 
 ## 规格引用
 

@@ -86,6 +86,8 @@ vault 根必须存在以下文件，缺失则从 `.thirdspace/schema/` 下的模
 
 插件已随 vault 分发，位于：`.obsidian/plugins/thirdspace-dashboard/`
 
+当前版本 `0.2.0` 与 `.thirdspace/data/daily-agent/` 共用事项和阅读队列；若修改插件源码，应在插件目录运行 `npm test && npm run build`，并提交更新后的 `main.js`。
+
 用户需要在 Obsidian 中手动启用（无法自动化）：
 设置 → 第三方插件 → 允许社区插件 → 启用 ThirdSpace Dashboard
 

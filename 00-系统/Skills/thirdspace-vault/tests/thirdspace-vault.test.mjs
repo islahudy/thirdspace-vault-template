@@ -9,6 +9,19 @@ const testDir = path.dirname(new URL(import.meta.url).pathname);
 const vaultRoot = path.resolve(testDir, "../../../..");
 const script = path.join(vaultRoot, "00-系统", "Skills", "thirdspace-vault", "scripts", "thirdspace-vault.mjs");
 
+test("dashboard distribution includes the Daily Agent source build", () => {
+  const root = path.join(vaultRoot, ".obsidian", "plugins", "thirdspace-dashboard");
+  for (const file of ["package.json", "package-lock.json", "src/main.mjs", "src/state.mjs", "src/models.mjs", "main.js"]) {
+    assert.equal(fs.existsSync(path.join(root, file)), true, `missing dashboard asset: ${file}`);
+  }
+  const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.json"), "utf8"));
+  assert.equal(manifest.version, "0.2.0");
+  const bundle = fs.readFileSync(path.join(root, "main.js"), "utf8");
+  assert.match(bundle, /\.thirdspace\/data\/daily-agent/);
+  assert.match(bundle, /tasks\.json/);
+  assert.match(bundle, /reading-queue\.json/);
+});
+
 function run(...args) {
   return JSON.parse(execFileSync(process.execPath, [script, ...args], { encoding: "utf8" }));
 }

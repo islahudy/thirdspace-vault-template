@@ -4,7 +4,7 @@ type: "spec"
 topic: "system"
 workspace: "00-系统"
 created: "2026-08-22 00:00:00"
-modified: "2026-08-22 00:00:00"
+modified: "2026-08-22 12:00:00"
 tags: ["system", "spec", "pi-agent", "daily-management"]
 source: "manual"
 status: "active"
@@ -381,7 +381,7 @@ ThirdSpace Dashboard 保留为人类可视化入口，Todo 数据源从工作日
 
 Dashboard 和 Pi Agent 写入 JSON 时必须读取最新 revision、校验 schema、修改目标记录、原子替换文件并追加状态变化事件。
 
-当前仓库只有打包后的插件 `main.js`。改造时必须恢复最小源码和构建结构，以生成物方式继续提交 `main.js`，不长期直接维护压缩产物。
+当前仓库已恢复最小源码、测试与构建结构，以生成物方式提交 `main.js`。Dashboard `0.2.0` 已接入 Daily Agent 的事项与阅读队列，任务状态变化会同步写入结构化状态并追加事件。
 
 ## 11. Pi Agent Skill
 
@@ -431,9 +431,9 @@ Wiki 发布必须始终需要用户确认。以后实现 MCP Adapter 时不得�
 
 ### 第二阶段：Dashboard
 
-- 恢复插件源码与构建结构。
-- 将 Todo 数据源迁移到 `tasks.json`。
-- 增加优先级、DDL、tags、项目 Todo 和阅读积压界面。
+- [x] 恢复插件源码与构建结构。
+- [x] 将 Todo 数据源迁移到 `tasks.json`。
+- [x] 增加优先级、DDL、tags、项目 Todo 和阅读积压界面。
 
 ### 第三阶段：事件与报告
 

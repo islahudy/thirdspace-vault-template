@@ -17,6 +17,7 @@ obsidian_plugins:
   thirdspace-dashboard:
     path: ".obsidian/plugins/thirdspace-dashboard"
     manifest: ".obsidian/plugins/thirdspace-dashboard/manifest.json"
+    version: "0.2.0"
     required: true
     enable_on_init: true
 
