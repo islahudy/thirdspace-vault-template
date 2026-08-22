@@ -86,11 +86,15 @@ function dispatch(args) {
   if (command === "task-add") return { task: createTask(context, {
     title: args.title, priority: args.priority, due: args.due, tags: csv(args.tags),
     project_id: args["project-id"], status: args.status, review_after: args["review-after"],
+    external_ref: args["external-kind"] && args["external-id"]
+      ? { provider: "eventkit", kind: args["external-kind"], id: args["external-id"] }
+      : undefined,
   }) };
   if (command === "task-transition") return { task: transitionTask(context, args.id, args.status, {
     confirmed: args.confirmed === true,
     due: args.due,
     review_after: args["review-after"],
+    completed_at: args["completed-at"],
   }) };
   if (command === "reading-scan") return scanReadingInbox(context);
   if (command === "reading-confirm") return { item: confirmReadingCandidate(context, args.id, args.decision) };

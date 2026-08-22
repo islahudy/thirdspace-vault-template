@@ -29,9 +29,10 @@ Required: `id`, `title`, `status`, `priority`, `tags`, `created_at`, `updated_at
 
 - Status: `inbox | active | waiting | completed | cancelled`
 - Priority: `critical | high | normal | low`
-- Optional: `due`, `review_after`, `project_id`, `completed_at`
+- Optional: `due`, `review_after`, `project_id`, `completed_at`, `external_ref`
 - `project_id` must resolve in `project-index.json`.
 - Cancellation requires explicit confirmation.
+- `external_ref` is an EventKit locator with required `provider`, `kind`, and `id` fields. `provider` is `eventkit`; `kind` is `calendar | reminder`. It is a locator only, not cached Apple state.
 
 ## Reading Item
 

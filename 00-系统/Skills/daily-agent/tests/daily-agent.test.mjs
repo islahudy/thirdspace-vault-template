@@ -37,6 +37,16 @@ function initializeDailyState(root) {
   });
 }
 
+function fixtureVault() {
+  const root = temporaryVault();
+  initializeDailyState(root);
+  return root;
+}
+
+function testContext(root) {
+  return { vaultRoot: root, now: "2026-08-22T09:00:00+08:00" };
+}
+
 function readEvents(root) {
   const eventRoot = path.join(root, ".thirdspace", "events", "local");
   if (!fs.existsSync(eventRoot)) return [];
@@ -133,6 +143,68 @@ test("task lifecycle validates input, project links, and confirmed cancellation"
     assert.throws(() => transitionTask(context, task.id, "cancelled", {}), /confirmation required/);
     const cancelled = transitionTask(context, task.id, "cancelled", { confirmed: true });
     assert.equal(cancelled.status, "cancelled");
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("task creation stores a validated EventKit reference", () => {
+  const root = fixtureVault();
+  try {
+    const context = testContext(root);
+    const task = createTask(context, {
+      title: "Submit report",
+      external_ref: { provider: "eventkit", kind: "reminder", id: "REM-1" },
+    });
+    assert.deepEqual(task.external_ref, {
+      provider: "eventkit", kind: "reminder", id: "REM-1",
+    });
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("task creation rejects incomplete EventKit references", () => {
+  const root = fixtureVault();
+  try {
+    assert.throws(
+      () => createTask(testContext(root), {
+        title: "Broken", external_ref: { provider: "eventkit", kind: "reminder", id: "" },
+      }),
+      /invalid external_ref/,
+    );
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("completion accepts the EventKit completion timestamp", () => {
+  const root = fixtureVault();
+  try {
+    const context = testContext(root);
+    const task = createTask(context, { title: "Linked" });
+    const completed = transitionTask(context, task.id, "completed", {
+      completed_at: "2026-08-22T08:30:00+08:00",
+    });
+    assert.equal(completed.completed_at, "2026-08-22T08:30:00+08:00");
+    assert.throws(
+      () => transitionTask(context, task.id, "completed", { completed_at: "not-a-date" }),
+      /invalid completed_at/,
+    );
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("CLI forwards EventKit reference and completion timestamp", () => {
+  const root = fixtureVault();
+  try {
+    const linked = runCli(root, "task-add", "--vault", root, "--title", "Linked", "--external-kind", "reminder", "--external-id", "REM-2");
+    assert.deepEqual(linked.task.external_ref, { provider: "eventkit", kind: "reminder", id: "REM-2" });
+    const unlinked = runCli(root, "task-add", "--vault", root, "--title", "Unlinked", "--external-kind", "calendar");
+    assert.equal(unlinked.task.external_ref, undefined);
+    const completed = runCli(root, "task-transition", "--vault", root, "--id", linked.task.id, "--status", "completed", "--completed-at", "2026-08-22T08:30:00+08:00");
+    assert.equal(completed.task.completed_at, "2026-08-22T08:30:00+08:00");
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

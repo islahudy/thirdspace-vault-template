@@ -11,6 +11,10 @@ files:
 task:
   status_values: [inbox, active, waiting, completed, cancelled]
   priority_values: [critical, high, normal, low]
+  external_ref:
+    provider_values: [eventkit]
+    kind_values: [calendar, reminder]
+    required_fields: [provider, kind, id]
 
 reading:
   kind_values: [paper, blog]

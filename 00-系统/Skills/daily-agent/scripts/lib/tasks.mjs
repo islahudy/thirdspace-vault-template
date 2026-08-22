@@ -8,6 +8,17 @@ import { mutateState, readState } from "./store.mjs";
 const PRIORITIES = new Set(["critical", "high", "normal", "low"]);
 const STATUSES = new Set(["inbox", "active", "waiting", "completed", "cancelled"]);
 
+function normalizeExternalRef(value) {
+  if (value == null) return undefined;
+  if (value.provider !== "eventkit"
+      || !new Set(["calendar", "reminder"]).has(value.kind)
+      || typeof value.id !== "string"
+      || value.id.trim() === "") {
+    throw new Error("invalid external_ref");
+  }
+  return { provider: "eventkit", kind: value.kind, id: value.id.trim() };
+}
+
 function stateFile(context, name) {
   return path.join(context.vaultRoot, ".thirdspace", "data", "daily-agent", name);
 }
@@ -61,6 +72,7 @@ export function createTask(context, input) {
   const title = String(input.title || "").trim();
   const priority = input.priority || "normal";
   const status = input.status || "active";
+  const externalRef = normalizeExternalRef(input.external_ref);
   if (!title) throw new Error("title is required");
   if (!PRIORITIES.has(priority)) throw new Error(`invalid priority: ${priority}`);
   if (!STATUSES.has(status)) throw new Error(`invalid status: ${status}`);
@@ -83,6 +95,7 @@ export function createTask(context, input) {
     updated_at: context.now,
     completed_at: status === "completed" ? context.now : null,
     source: input.source || "pi-agent",
+    ...(externalRef ? { external_ref: externalRef } : {}),
   };
   mutateState(file, current.revision, (value) => ({ ...value, tasks: [...value.tasks, task] }), context.now);
   emit(context, "task_created", task.id, { task: { title: task.title, priority, project_id: task.project_id } });
@@ -92,17 +105,19 @@ export function createTask(context, input) {
 export function transitionTask(context, id, nextStatus, patch = {}) {
   if (!STATUSES.has(nextStatus)) throw new Error(`invalid status: ${nextStatus}`);
   if (nextStatus === "cancelled" && patch.confirmed !== true) throw new Error("confirmation required for cancellation");
+  if (patch.completed_at !== undefined && !Number.isFinite(Date.parse(patch.completed_at))) throw new Error("invalid completed_at");
   const file = stateFile(context, "tasks.json");
   const current = readState(file, "tasks");
   const index = current.tasks.findIndex((task) => task.id === id);
   if (index === -1) throw new Error(`task not found: ${id}`);
   const previous = current.tasks[index];
+  const { confirmed, completed_at, ...updates } = patch;
   const task = {
     ...previous,
-    ...Object.fromEntries(Object.entries(patch).filter(([key]) => key !== "confirmed")),
+    ...updates,
     status: nextStatus,
     updated_at: context.now,
-    completed_at: nextStatus === "completed" ? context.now : previous.completed_at,
+    completed_at: nextStatus === "completed" ? completed_at || context.now : previous.completed_at,
   };
   const tasks = current.tasks.slice();
   tasks[index] = task;
