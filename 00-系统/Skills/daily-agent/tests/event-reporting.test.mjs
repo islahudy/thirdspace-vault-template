@@ -209,7 +209,7 @@ test("weekly reviews render evidence, coverage warnings, and preserve user text 
 
     assert.equal(first.path, path.join(root, "02-日记", "复盘", "20260823_周报_2026-W34.md"));
     assert.equal(first.updated, true);
-    assert.match(initial, /^---\ntitle: "周报：2026-W34"\ntype: "review"\ntopic: "work"\nworkspace: "02-日记"\ncreated: "2026-08-24T08:00:00\+08:00"\nmodified: "2026-08-24T08:00:00\+08:00"\nstatus: "active"\n---/);
+    assert.match(initial, /^---\ntitle: "周报：2026-W34"\ntype: "review"\ntopic: "work"\nworkspace: "02-日记"\ncreated: "2026-08-24T08:00:00\+08:00"\nmodified: "2026-08-24T08:00:00\+08:00"\ntags: \["work", "review", "active"\]\nsource: "agent"\nstatus: "active"\n---/);
     for (const heading of ["总览", "事项与阅读", "项目与 Git", "Token 用量", "数据覆盖", "Agent 评价"]) {
       assert.match(initial, new RegExp(`## ${heading}`));
     }
@@ -236,6 +236,37 @@ test("weekly reviews render evidence, coverage warnings, and preserve user text 
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("reviews reject unsafe period IDs before resolving output paths", () => {
+  const root = temporaryVault();
+  try {
+    const outside = path.join(root, "outside.md");
+    const unsafe = reportInput({ period: {
+      id: "../outside", kind: "weekly", timezone: "Asia/Shanghai",
+      start: "2026-08-17T00:00:00+08:00", end: "2026-08-24T00:00:00+08:00",
+    } });
+
+    assert.throws(
+      () => writeReview({ vaultRoot: root, now: "2026-08-24T08:00:00+08:00" }, unsafe),
+      /invalid ReportInput period.id/,
+    );
+    assert.equal(fs.existsSync(outside), false);
+    assert.equal(fs.existsSync(path.join(root, "02-日记", "复盘")), false);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("reviews treat missing event sources as a coverage gap", () => {
+  const report = reportInput({
+    coverage: { sources: [], rejected_events: 0, unmapped_repos: [], missing_token_fields: 0 },
+  });
+
+  const markdown = renderReview(report);
+
+  assert.match(markdown, /本周期没有纳入报告的事件来源。/);
+  assert.match(markdown, /数据判断：存在覆盖缺口，以上结论仅基于已聚合证据。/);
 });
 
 test("review-generate accepts saved bounded input and records the matching review timestamp", () => {

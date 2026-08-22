@@ -41,6 +41,12 @@ function reviewInfo(report) {
   throw new Error(`unsupported review kind: ${kind || "missing"}`);
 }
 
+function validPeriodId(kind, id) {
+  if (kind === "weekly") return /^\d{4}-W(?:0[1-9]|[1-4]\d|5[0-3])$/.test(id);
+  if (kind === "monthly") return /^\d{4}-(?:0[1-9]|1[0-2])$/.test(id);
+  return false;
+}
+
 function reviewDate(report) {
   const end = Date.parse(report.period.end);
   if (!Number.isFinite(end)) throw new Error("invalid ReportInput period.end");
@@ -152,11 +158,12 @@ function renderEvaluation(report) {
       ? "任务完成率达到 70% 以上。"
       : "任务完成率低于 70%，应优先复核遗留事项。";
   const coverage = report.coverage.missing_token_fields + report.coverage.rejected_events + report.coverage.unmapped_repos.length;
+  const hasCoverageGap = report.coverage.sources.length === 0 || coverage > 0;
   return [
     `- 任务判断：${assessment}`,
     `- 项目判断：${activeWithActivity} 个活跃项目有活动，${report.projects.without_activity.length} 个未见活动。`,
     `- 阅读判断：积压 ${report.reading.backlog.length} 项，超期 ${staleReadingCount(report)} 项。`,
-    coverage > 0 ? "- 数据判断：存在覆盖缺口，以上结论仅基于已聚合证据。" : "- 数据判断：当前聚合未报告覆盖缺口。",
+    hasCoverageGap ? "- 数据判断：存在覆盖缺口，以上结论仅基于已聚合证据。" : "- 数据判断：当前聚合未报告覆盖缺口。",
     "- 本段为确定性规则草稿；仅在用户明确要求时，Pi 才可在本节内改写措辞。",
   ].join("\n");
 }
@@ -165,6 +172,7 @@ export function validateReportInput(report) {
   if (!report || typeof report !== "object" || Array.isArray(report) || report.version !== "1.0") throw new Error("invalid ReportInput");
   if (!report.period || typeof report.period !== "object" || !String(report.period.id || "") || !String(report.period.timezone || "")) throw new Error("invalid ReportInput period");
   reviewInfo(report);
+  if (!validPeriodId(report.period.kind, report.period.id)) throw new Error("invalid ReportInput period.id");
   dateInTimezone(report.generated_at, report.period.timezone);
   if (!report.git || !report.git.total || !report.git.by_project || !report.tokens || !report.tasks || !report.reading || !report.projects || !report.coverage) throw new Error("invalid ReportInput sections");
   for (const [value, field] of [
@@ -211,6 +219,8 @@ function frontmatter(report, timestamp) {
     'workspace: "02-日记"',
     `created: "${timestamp}"`,
     `modified: "${timestamp}"`,
+    'tags: ["work", "review", "active"]',
+    'source: "agent"',
     'status: "active"',
     "---",
   ].join("\n");
@@ -237,7 +247,10 @@ export function writeReview(context, report) {
   const info = reviewInfo(report);
   const outputDir = path.join(context.vaultRoot, "02-日记", "复盘");
   const filename = `${reviewDate(report)}_${info.label}_${report.period.id}.md`;
-  const output = path.join(outputDir, filename);
+  const resolvedOutputDir = path.resolve(outputDir);
+  const output = path.resolve(resolvedOutputDir, filename);
+  const relativeOutput = path.relative(resolvedOutputDir, output);
+  if (relativeOutput === ".." || relativeOutput.startsWith(`..${path.sep}`) || path.isAbsolute(relativeOutput)) throw new Error("review output escapes review root");
   const managed = renderReview(report);
   const next = fs.existsSync(output)
     ? replaceManagedSection(fs.readFileSync(output, "utf8"), managed)
