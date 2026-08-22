@@ -2,7 +2,7 @@
 
 ## 用途
 
-管理正在推进的创作、产品、运营和工程项目。
+管理正在推进的研究与工程项项目。
 
 ## 允许
 
@@ -20,14 +20,11 @@
 
 ## 命名
 
-一级分类按项目意图划分：
+项目不预设分类目录；每个项目直接建一级目录并自行维护说明：
 
-- `内容创作/`
-- `产品系统/`
-- `运营增长/`
-- `商业合作/`
-- `研究验证/`
-- `实验原型/`
+```text
+04-项目/YYYYMMDDHHMM_项目名/
+```
 
 项目目录使用 `YYYYMMDDHHMM_项目名/`。历史项目目录若只有日期没有时分，可以先保留，后续重命名必须通过分类审计和迁移 trace。项目内文档可使用 `brief.md`、`plan.md`、`assets.md`、`review.md`。
 
@@ -35,13 +32,9 @@
 
 ## Frontmatter
 
-项目内核心 Markdown 必须包含 `project` 字段，并尽量包含：
+项目内核心 Markdown 必须包含 `project` 与 `stage` 字段；`project_type` / `project_category` 不作为枚举约束，项目维度自行写入 `tags` 或项目内说明文档。
 
-- `project_type`
-- `project_category`
-- `stage`
-
-分类规则以 `00-系统/规范/06_项目工作区分类治理规则.md` 和 `.thirdspace/schema/frontmatter.yaml` 的 `conditional_fields.project` 为准。
+分类规则以 `.thirdspace/schema/frontmatter.yaml` 的 `conditional_fields.project` 为准。
 
 ## 子 Skill
 

@@ -1,11 +1,11 @@
 ---
 name: workspace-outputs
-description: Use when maintaining ThirdSpace `06-输出`, articles, voiceovers, video scripts, decks, publishing drafts, publish-ready assets, or output lifecycle states.
+description: Use when maintaining ThirdSpace `06-输出`, articles, decks, publish-ready assets, or output lifecycle states.
 triggers:
   - "文章"
-  - "口播稿"
-  - "视频脚本"
-  - "发布稿"
+  - "PPT"
+  - "组会"
+  - "学术汇报"
 ---
 
 # Workspace Outputs Skill
@@ -21,14 +21,12 @@ triggers:
 ## 文件创建
 
 - 文章写入 `文章/YYYYMMDD_文章标题.md`。
-- 口播稿写入 `口播稿/YYYYMMDD_口播主题.md`。
-- 视频脚本写入 `视频脚本/YYYYMMDD_视频主题.md`。
-- 发布稿写入 `发布稿/YYYYMMDD_发布主题.md`。
+- PPT 说明写入 `PPT/YYYYMMDD_PPT主题.md`。
 
 ## 自治维护回路
 
-1. 判断输出类型：文章、口播稿、视频脚本、PPT 或发布稿。
-2. 补 `workspace=06-输出`、`type=article|voiceover|script|deck`、`status=draft|review|published|archived`。
+1. 判断输出类型：文章或 PPT（组会/学术汇报）。
+2. 补 `workspace=06-输出`、`type=article|deck`、`status=draft|review|published|archived`。
 3. 记录来源关系：`sources`、`project` 或上游知识笔记。
 4. 发布后更新状态为 `published`，需要归档时流转到 `99-归档`。
 5. 如果只是素材或原始研究，回流到 `03-知识`、`04-项目` 或 `05-资源`。

@@ -19,7 +19,7 @@ triggers:
 
 ## 文件创建
 
-- 根据主题写入现有一级目录，例如 `AI工程/YYYYMMDD_标题.md`、`开发/YYYYMMDD_标题.md`、`书籍笔记/YYYYMMDD_标题.md`。
+- 根据主题写入现有一级目录：`论文笔记/YYYYMMDD_标题.md`、`学习笔记/YYYYMMDD_标题.md`、`some idea/YYYYMMDD_标题.md`。
 - 主题子目录只保留一层。
 - `type` 使用 `note` 或 `card`。
 

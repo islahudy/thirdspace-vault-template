@@ -323,10 +323,9 @@ target_paths：
 ### 输出
 
 ```text
-{VAULT}/03-知识/AI工程
-{VAULT}/03-知识/开发
-{VAULT}/03-知识/书籍笔记
-{VAULT}/03-知识/AI工具学习
+{VAULT}/03-知识/论文笔记
+{VAULT}/03-知识/学习笔记
+{VAULT}/03-知识/some idea
 ```
 
 ### 规则
@@ -361,10 +360,9 @@ source_paths：
 - {VAULT}/space/found/subject
 
 target_paths：
-- {VAULT}/03-知识/AI工程
-- {VAULT}/03-知识/开发
-- {VAULT}/03-知识/书籍笔记
-- {VAULT}/03-知识/AI工具学习
+- {VAULT}/03-知识/论文笔记
+- {VAULT}/03-知识/学习笔记
+- {VAULT}/03-知识/some idea
 
 逐个文件迁移，补齐 Frontmatter，最多保留一层主题目录。
 完成后写入 {VAULT}/.thirdspace/reports/YYYYMMDD_03-知识_规范化报告.md。
@@ -379,23 +377,13 @@ target_paths：
 ### 输入
 
 ```text
-{VAULT}/04-项目/内容创作/20260415_创作
-{VAULT}/04-项目/运营增长/202605211200_知识星球
-{VAULT}/04-项目/产品系统/20260430_短视频创作者AI知识库
-{VAULT}/04-项目/产品系统/20260509_MoonOS
-{VAULT}/04-项目/商业合作/20260430_声文智汇
-{VAULT}/04-项目/实验原型/20260415_AI童伴
+（历史遗留项目示例，仅作追溯；当前结构见 `04-项目/WORKSPACE.md`）
 ```
 
 ### 输出
 
 ```text
-{VAULT}/04-项目/内容创作
-{VAULT}/04-项目/运营增长
-{VAULT}/04-项目/产品系统
-{VAULT}/04-项目/商业合作
-{VAULT}/04-项目/研究验证
-{VAULT}/04-项目/实验原型
+{VAULT}/04-项目/YYYYMMDDHHMM_项目名/   # 项目自建目录，不预设分类
 ```
 
 ### 规则
@@ -420,20 +408,10 @@ target_paths：
 你负责规范化 04-项目。
 
 source_paths：
-- {VAULT}/04-项目/内容创作/20260415_创作
-- {VAULT}/04-项目/运营增长/202605211200_知识星球
-- {VAULT}/04-项目/产品系统/20260430_短视频创作者AI知识库
-- {VAULT}/04-项目/产品系统/20260509_MoonOS
-- {VAULT}/04-项目/商业合作/20260430_声文智汇
-- {VAULT}/04-项目/实验原型/20260415_AI童伴
+- {VAULT}/04-项目/<旧分类>/<项目目录>（legacy，仅作追溯）
 
 target_paths：
-- {VAULT}/04-项目/内容创作
-- {VAULT}/04-项目/运营增长
-- {VAULT}/04-项目/产品系统
-- {VAULT}/04-项目/商业合作
-- {VAULT}/04-项目/研究验证
-- {VAULT}/04-项目/实验原型
+- {VAULT}/04-项目/YYYYMMDDHHMM_项目名/（项目自建目录，不预设分类）
 
 不要打散项目资产。对复杂项目先写迁移建议和项目索引。
 完成后写入 {VAULT}/.thirdspace/reports/YYYYMMDD_04-项目_规范化报告.md。
@@ -512,7 +490,7 @@ target_paths：
 
 ### 目标
 
-迁移并规范化文章、口播稿、视频脚本和发布稿。
+迁移并规范化文章、PPT（组会/学术汇报）。
 
 ### 输入
 
@@ -527,16 +505,13 @@ target_paths：
 
 ```text
 {VAULT}/06-输出/文章
-{VAULT}/06-输出/口播稿
-{VAULT}/06-输出/视频脚本
-{VAULT}/06-输出/发布稿
+{VAULT}/06-输出/PPT
 ```
 
 ### 规则
 
 - 文章 `type=article`。
-- 口播稿 `type=voiceover`。
-- 视频脚本 `type=script`。
+- PPT `type=deck`。
 - 未完成草稿 `status=draft`。
 - 已发布内容保留发布信息。
 - `workspace=06-输出`。
@@ -561,9 +536,7 @@ source_paths：
 
 target_paths：
 - {VAULT}/06-输出/文章
-- {VAULT}/06-输出/口播稿
-- {VAULT}/06-输出/视频脚本
-- {VAULT}/06-输出/发布稿
+- {VAULT}/06-输出/PPT
 
 区分草稿和成品，补齐 Frontmatter，记录 source -> target。
 完成后写入 {VAULT}/.thirdspace/reports/YYYYMMDD_06-输出_规范化报告.md。

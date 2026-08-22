@@ -31,9 +31,9 @@ status_values:
 conditional_fields:
   project:
     when_type: project
-    required: [project, project_type, project_category, stage]
-    project_type_values: [content, product, operations, business, research, experiment]
-    project_category_values: [内容创作, 产品系统, 运营增长, 商业合作, 研究验证, 实验原型]
+    required: [project, stage]
+    # 项目不预设分类；目录由主人自建（YYYYMMDDHHMM_项目名），
+    # project_type / project_category 不再作为枚举约束。
     stage_values: [idea, research, prototype, active, paused, completed, archived]
 
   resource:

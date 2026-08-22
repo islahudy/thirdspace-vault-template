@@ -48,7 +48,7 @@ node {SKILLS}/thirdspace-vault/scripts/thirdspace-vault.mjs init --vault /path/t
 node {SKILLS}/thirdspace-vault/scripts/thirdspace-vault.mjs init --vault /path/to/new-vault --install-runtime
 node {SKILLS}/thirdspace-vault/scripts/thirdspace-vault.mjs route-create --cwd "$PWD" --intent "写一篇开发文档" --title "项目部署流程"
 node {SKILLS}/thirdspace-vault/scripts/thirdspace-vault.mjs migrate-flux-intake --vault {VAULT} --dry-run
-node {SKILLS}/thirdspace-vault/scripts/thirdspace-vault.mjs create --vault {VAULT} --workspace 03-知识 --subdir AI工程 --title "Agent工作流" --topic ai --type note
+node {SKILLS}/thirdspace-vault/scripts/thirdspace-vault.mjs create --vault {VAULT} --workspace 03-知识 --subdir 论文笔记 --title "阅读笔记" --topic reading --type note
 node {SKILLS}/thirdspace-vault/scripts/thirdspace-vault.mjs ensure-worklog
 node {SKILLS}/thirdspace-vault/scripts/thirdspace-vault.mjs record-agent-event --cwd "$PWD" --summary "完成重要产出" --decision "采用当前方案" --reason "更符合知识库自治目标"
 node {SKILLS}/thirdspace-vault/scripts/thirdspace-vault.mjs register-hooks --repo "$PWD"

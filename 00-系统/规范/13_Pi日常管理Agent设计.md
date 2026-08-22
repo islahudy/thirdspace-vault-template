@@ -145,7 +145,7 @@ pending -> reading -> processed
     {
       "id": "project_thirdspace",
       "name": "ThirdSpace",
-      "path": "04-项目/产品系统/项目目录",
+      "path": "04-项目/YYYYMMDDHHMM_项目名",
       "status": "active",
       "stage": "active",
       "repo_mappings": ["agent-tooling"],

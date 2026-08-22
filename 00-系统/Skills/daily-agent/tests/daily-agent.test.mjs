@@ -108,14 +108,14 @@ test("task lifecycle validates input, project links, and confirmed cancellation"
   const root = temporaryVault();
   try {
     initializeDailyState(root);
-    const projectPath = path.join(root, "04-项目", "产品系统", "20260822_ThirdSpace");
+    const projectPath = path.join(root, "04-项目", "20260822_ThirdSpace");
     fs.mkdirSync(projectPath, { recursive: true });
     const context = { vaultRoot: root, now: "2026-08-22T09:00:00+08:00" };
     const project = registerProject(context, {
       id: "project_thirdspace", name: "ThirdSpace",
-      path: "04-项目/产品系统/20260822_ThirdSpace", status: "active", stage: "active",
+      path: "04-项目/20260822_ThirdSpace", status: "active", stage: "active",
     });
-    assert.equal(project.path, "04-项目/产品系统/20260822_ThirdSpace");
+    assert.equal(project.path, "04-项目/20260822_ThirdSpace");
     const task = createTask(context, {
       title: "提交合作材料", priority: "high", due: "2026-08-25",
       tags: ["横向", "合作", "横向"], project_id: "project_thirdspace",

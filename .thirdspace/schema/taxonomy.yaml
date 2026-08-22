@@ -5,7 +5,10 @@
 topic_values:
   - ai            # AI 相关知识、工程
   - dev           # 软件开发、技术
-  - reading       # 阅读、书籍笔记
+  - reading       # 阅读、论文笔记
+  - study         # 学习笔记
+  - idea          # 灵感、随想（some idea）
+  - fitness       # 锻炼、饮食、饮水等身体记录（body）
   - work          # 工作日志、职场
   - project       # 项目管理、产品
   - tools         # 工具、CLI、工作流
@@ -17,8 +20,6 @@ type_values:
   - note          # 普通笔记
   - card          # 知识卡片（已处理的知识单元）
   - article       # 可发布文章
-  - voiceover     # 口播稿
-  - script        # 视频脚本
   - deck          # 演示文稿
   - review        # 复盘、回顾
   - reflection    # 反思

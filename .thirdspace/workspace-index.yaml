@@ -34,12 +34,12 @@ workspaces:
 
   - dir: "03-知识"
     skill: workspace-knowledge
-    desc: "长期知识沉淀：AI工程、开发技术、工具方法论、学习笔记、阅读卡片。不含原创文章或活跃项目文档。"
+    desc: "长期知识沉淀：论文笔记、学习笔记、灵感想法（some idea）。不按研究方向建目录，不含原始剪藏与项目文档。"
     scan_dirs: true   # 扫描子目录，让 Claude 感知当前主题分布
 
   - dir: "04-项目"
     skill: workspace-projects
-    desc: "活跃产品和项目执行：MoonOS、灵犀、内容创作、商业合作等。含产品设计文档、roadmap、项目素材。"
+    desc: "活跃研究项目：项目目录直接使用 YYYYMMDDHHMM_项目名，不预设分类，由主人自建并自管说明。含计划、素材、项目文档。"
     scan_dirs: true   # 扫描子目录，让 Claude 感知当前项目列表
 
   - dir: "05-资源"
@@ -49,7 +49,7 @@ workspaces:
 
   - dir: "06-输出"
     skill: workspace-outputs
-    desc: "可发布成品：只放作者本人写的文章、口播稿。互联网转载内容不放这里，去收件箱。"
+    desc: "可发布成品：文章、PPT（组会/学术汇报）。互联网转载内容不放这里，去收件箱。"
     scan_dirs: false
 
   - dir: "99-归档"

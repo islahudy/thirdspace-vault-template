@@ -7,10 +7,7 @@
 ## 允许
 
 - 文章
-- 口播稿
-- 视频脚本
-- PPT
-- 发布稿
+- PPT（组会/学术汇报）
 
 ## 禁止
 
@@ -20,11 +17,11 @@
 
 ## 命名
 
-文章使用 `YYYYMMDD_文章标题.md`。口播稿使用 `YYYYMMDD_口播主题.md`。PPT 说明使用 `YYYYMMDD_PPT主题.md`。
+文章使用 `YYYYMMDD_文章标题.md`。PPT 说明使用 `YYYYMMDD_PPT主题.md`。
 
 ## Frontmatter
 
-`workspace` 必须为 `06-输出`，`type` 使用 `article`、`voiceover`、`script` 或 `deck`。
+`workspace` 必须为 `06-输出`，`type` 使用 `article` 或 `deck`。
 
 输出生命周期统一使用 `draft -> review -> published -> archived`。
 

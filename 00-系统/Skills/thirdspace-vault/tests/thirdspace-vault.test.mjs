@@ -217,7 +217,7 @@ test("Phase 3 distribution publishes remote reporting assets and intent routing"
 
 test("canonical schemas expose every supported type and status", () => {
   assert.deepEqual(readYamlList(path.join(vaultRoot, ".thirdspace/schema/taxonomy.yaml"), "type_values"), [
-    "note", "card", "article", "voiceover", "script", "deck", "review", "reflection", "worklog",
+    "note", "card", "article", "deck", "review", "reflection", "worklog",
     "clipping", "study", "spec", "skill", "roadmap", "board", "event", "project", "resource",
   ]);
   assert.deepEqual(readYamlList(path.join(vaultRoot, ".thirdspace/schema/frontmatter.yaml"), "status_values"), [
@@ -273,7 +273,7 @@ test("semantic audit validates project metadata and LifeOS synchronization", () 
   const target = fs.mkdtempSync(path.join(os.tmpdir(), "thirdspace-content-"));
   try {
     run("init", "--vault", target);
-    const project = path.join(target, "04-项目/产品系统/20260821_测试.md");
+    const project = path.join(target, "04-项目/20260821_测试.md");
     fs.writeFileSync(project, "---\ntitle: \"测试\"\ntype: \"project\"\ntopic: \"project\"\nworkspace: \"04-项目\"\ncreated: \"2026-08-21 00:00:00\"\nmodified: \"2026-08-21 00:00:00\"\ntags: [project]\nsource: \"manual\"\nstatus: \"active\"\n---\n\n# 测试\n");
     fs.writeFileSync(path.join(target, ".thirdspace/data/lifeos/people.json"), '{"version":"1.0","people":[{"id":"different"}]}\n');
     const audit = run("audit-subsystems", "--vault", target);

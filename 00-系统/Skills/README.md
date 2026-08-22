@@ -34,11 +34,11 @@ thirdspace-vault
 |---|---|---|
 | `00-系统` | `workspace-system` | 规范、Schema、Agent 入口、Skill 索引、审计。 |
 | `01-收件箱` | `workspace-inbox` | 网页剪藏、临时想法、素材暂存、待整理队列。 |
-| `02-日记` | `workspace-journal` | 每日、工作日志、反思、复盘、人际事件。 |
-| `03-知识` | `workspace-knowledge` | 知识卡片、主题笔记、长期知识沉淀。 |
-| `04-项目` | `workspace-projects` | 活跃项目分类、项目文档、项目内局部上下文。 |
+| `02-日记` | `workspace-journal` | 每日、工作日志、反思、复盘、人际事件、body 身体记录。 |
+| `03-知识` | `workspace-knowledge` | 论文笔记、学习笔记、灵感想法（some idea）。 |
+| `04-项目` | `workspace-projects` | 项目自建目录（不预设分类）、项目文档、项目内局部上下文。 |
 | `05-资源` | `workspace-resources` | 模板、附件、图片、人物档案、可复用工具资料。 |
-| `06-输出` | `workspace-outputs` | 文章、口播稿、视频脚本、PPT、发布稿。 |
+| `06-输出` | `workspace-outputs` | 文章、PPT（组会/学术汇报）。 |
 | `99-归档` | `workspace-archive` | 迁移记录、废弃系统、废弃工具、完结项目。 |
 
 ## 领域 Skills

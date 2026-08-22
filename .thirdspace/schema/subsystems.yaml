@@ -65,9 +65,9 @@ workspaces:
     agent_writable: true        # 仅允许受 Skill 约束的资源索引与 LifeOS 双副本写入
 
   "06-输出":
-    desc: "对外发布内容（文章、口播稿、脚本）"
+    desc: "对外发布内容（文章、PPT）"
     input: [03-知识, manual]
-    allowed_types: [article, voiceover, script, deck, review]
+    allowed_types: [article, deck, review]
     status_machine: [draft, review, published, archived]
     default_status: draft
     output_workspace: []

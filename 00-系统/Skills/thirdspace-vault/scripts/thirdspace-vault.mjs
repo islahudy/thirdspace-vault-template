@@ -17,19 +17,19 @@ const WORKSPACES = [
 const WORKSPACE_SUBDIRS = {
   "00-系统": ["规范", "Skills", "Agent", "运行时"],
   "01-收件箱": ["网页剪藏", "临时想法", "待整理", "素材暂存"],
-  "02-日记": ["每日", "工作日志", "反思", "复盘", "人际事件"],
-  "03-知识": ["AI学科", "AI工具学习", "AI工程", "AI论文", "Harness工程", "上下文工程", "书籍笔记", "多Agent协作开发", "开发", "开发工具", "开源项目蒸馏", "认知神经科学"],
-  "04-项目": ["内容创作", "产品系统", "运营增长", "商业合作", "研究验证", "实验原型"],
+  "02-日记": ["每日", "工作日志", "反思", "复盘", "人际事件", "body"],
+  "03-知识": ["论文笔记", "学习笔记", "some idea"],
+  "04-项目": [],  // 项目不预设分类；目录由主人自建（YYYYMMDDHHMM_项目名）
   "05-资源": ["CLI工具", "工作流", "模板", "附件", "图片", "人物档案"],
-  "06-输出": ["文章", "口播稿", "视频脚本", "PPT", "发布稿"],
+  "06-输出": ["文章", "PPT"],
   "99-归档": ["迁移记录", "废弃系统", "废弃工具", "完结项目"],
 };
 
 const TYPE_DEFAULTS = {
   "01-收件箱": { type: "clipping", status: "draft", source: "obsidian-clipper", subdir: "待整理" },
   "02-日记": { type: "worklog", status: "active", source: "manual", subdir: "每日" },
-  "03-知识": { type: "note", status: "active", source: "manual", subdir: "AI工程" },
-  "04-项目": { type: "project", status: "active", source: "manual", subdir: "产品系统" },
+  "03-知识": { type: "note", status: "active", source: "manual", subdir: "学习笔记" },
+  "04-项目": { type: "project", status: "active", source: "manual", subdir: "" },
   "05-资源": { type: "resource", status: "active", source: "manual", subdir: "模板" },
   "06-输出": { type: "article", status: "draft", source: "manual", subdir: "文章" },
   "99-归档": { type: "note", status: "archived", source: "manual", subdir: "迁移记录" },
@@ -102,38 +102,9 @@ const SUBSYSTEM_CONTRACTS = {
   },
 };
 
-const PROJECT_CATEGORIES = {
-  content: {
-    label: "内容创作",
-    directory: "内容创作",
-    keywords: ["创作", "视频", "口播", "脚本", "分镜", "publish", "storyboard", "topic", "内容"],
-  },
-  product: {
-    label: "产品系统",
-    directory: "产品系统",
-    keywords: ["MoonOS", "产品", "系统", "插件", "MCP", "CLI", "PRD", "spec", "harness", "Msg-Collect", "灵犀"],
-  },
-  operations: {
-    label: "运营增长",
-    directory: "运营增长",
-    keywords: ["知识星球", "运营", "增长", "SOP", "用户地图", "内容矩阵", "数据看板", "变现"],
-  },
-  business: {
-    label: "商业合作",
-    directory: "商业合作",
-    keywords: ["商业", "合作", "客户", "代理商", "pricing", "线索", "变现", "报价", "声文智汇"],
-  },
-  research: {
-    label: "研究验证",
-    directory: "研究验证",
-    keywords: ["调研", "研究", "验证", "方案", "探索", "spike", "评估"],
-  },
-  experiment: {
-    label: "实验原型",
-    directory: "实验原型",
-    keywords: ["MVP", "原型", "实验", "试验", "AI童伴", "demo", "prototype"],
-  },
-};
+// 项目不预设分类（2026-08-22 起）：目录由主人自建并自管说明。
+// 保留空结构，classifyProject 自动降级为“项目自管”审计。
+const PROJECT_CATEGORIES = {};
 
 const WEEKDAYS = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
 
@@ -142,21 +113,21 @@ const INTENT_ROUTES = [
     id: "dev_doc",
     patterns: ["开发文档", "技术方案", "部署", "架构", "接口", "SDK", "API", "工程文档"],
     workspace: "03-知识",
-    subdir: "开发",
+    subdir: "学习笔记",
     type: "note",
     topic: "dev",
     status: "active",
-    reason: "意图包含开发文档/技术方案语义，路由到长期技术知识。",
+    reason: "意图包含开发文档/技术方案语义，路由到学习笔记。",
   },
   {
     id: "tool_doc",
     patterns: ["CLI", "工具", "命令", "脚本", "自动化"],
     workspace: "03-知识",
-    subdir: "开发工具",
+    subdir: "学习笔记",
     type: "note",
     topic: "tools",
     status: "active",
-    reason: "意图包含工具/命令/自动化语义，路由到开发工具知识。",
+    reason: "意图包含工具/命令/自动化语义，路由到学习笔记。",
   },
   {
     id: "article",
@@ -167,16 +138,6 @@ const INTENT_ROUTES = [
     topic: "writing",
     status: "draft",
     reason: "意图包含可发布文章语义，路由到输出工作区。",
-  },
-  {
-    id: "voiceover",
-    patterns: ["口播", "口播稿", "短视频文案"],
-    workspace: "06-输出",
-    subdir: "口播稿",
-    type: "voiceover",
-    topic: "writing",
-    status: "draft",
-    reason: "意图包含口播/短视频文案语义，路由到口播稿。",
   },
   {
     id: "worklog",
@@ -1318,14 +1279,18 @@ function classifyProject(projectDir, currentCategory) {
   }
 
   const ranked = Object.entries(scores).sort((a, b) => b[1] - a[1]);
-  const [bestId, bestScore] = ranked[0];
+  const [bestId, bestScore] = ranked[0] || ["", 0];
   const [, secondScore] = ranked[1] || ["", 0];
-  const category = PROJECT_CATEGORIES[bestId];
+  const category = PROJECT_CATEGORIES[bestId] || { label: "项目自管（不预设分类）", directory: "" };
   const confidence = Math.max(0.45, Math.min(0.95, 0.55 + (bestScore - secondScore) * 0.08 + bestScore * 0.02));
-  const targetPath = path.join("04-项目", category.directory, base);
+  const targetPath = category.directory
+    ? path.join("04-项目", category.directory, base)
+    : path.join("04-项目", base);
 
   if (!reasons.length) {
-    reasons.push(`关键词匹配 ${category.label}，但证据较少`);
+    reasons.push(category.directory
+      ? `关键词匹配 ${category.label}，但证据较少`
+      : "项目不预设分类，按项目自建目录规范检查（YYYYMMDDHHMM_项目名）");
   }
 
   return {
@@ -1347,24 +1312,15 @@ function classifyProject(projectDir, currentCategory) {
 function discoverProjectDirs(vaultRoot) {
   const projectsRoot = path.join(vaultRoot, "04-项目");
   if (!fs.existsSync(projectsRoot)) return [];
-  const firstLevel = fs.readdirSync(projectsRoot, { withFileTypes: true })
+  // 项目不预设分类：04-项目 下一级目录即项目本身。
+  return fs.readdirSync(projectsRoot, { withFileTypes: true })
     .filter((entry) => entry.isDirectory() && !entry.name.startsWith("."))
-    .map((entry) => entry.name);
-  const projectDirs = [];
-  for (const category of firstLevel) {
-    const categoryDir = path.join(projectsRoot, category);
-    const children = fs.readdirSync(categoryDir, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory() && !entry.name.startsWith("."));
-    for (const child of children) {
-      projectDirs.push({ currentCategory: category, dir: path.join(categoryDir, child.name) });
-    }
-  }
-  return projectDirs;
+    .map((entry) => ({ currentCategory: "", dir: path.join(projectsRoot, entry.name) }));
 }
 
 function renderProjectAuditMarkdown(audit) {
   const lines = [
-    "# 04-项目 分类审计报告",
+    "# 04-项目 结构审计报告",
     "",
     `- 生成时间：${audit.generatedAt}`,
     `- 项目数：${audit.projects.length}`,
@@ -1382,7 +1338,7 @@ function renderProjectAuditMarkdown(audit) {
   lines.push("");
   lines.push("## 执行原则");
   lines.push("");
-  lines.push("- 本报告只提供分类建议，不自动移动项目目录。");
+  lines.push("- 项目不预设分类，本报告只做项目名/结构规范建议，不自动移动项目目录。");
   lines.push("- 低于 0.8 的建议必须人工确认。");
   lines.push("- 执行移动时只能移动完整项目目录，并写入 trace。");
   lines.push("- 复杂项目内部结构保留，不打散 `_assets/`、`research/`、`renders/`、`.codex/skills/`。");
@@ -1857,7 +1813,7 @@ function printHelp() {
   detect --vault <path> --cwd <path>
   init --vault <path> [--refresh-skills]
   init --vault <path> --install-runtime [--refresh-skills]
-  create --vault <path> --workspace <dir> --title <title> [--topic ai] [--type note] [--subdir AI工程]
+  create --vault <path> --workspace <dir> --title <title> [--topic ai] [--type note] [--subdir 论文笔记]
   route-create --intent <text> --title <title> [--cwd <path>] [--content <markdown>]
   migrate-flux-intake [--vault <path>] [--dry-run]
   ensure-worklog [--vault <path>]

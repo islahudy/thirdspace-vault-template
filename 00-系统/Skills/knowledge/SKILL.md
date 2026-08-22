@@ -19,8 +19,8 @@ This is a domain Skill loaded after `thirdspace-vault` and `workspace-knowledge`
 ## Current Paths
 
 - Raw or unprocessed capture: `{VAULT}/01-收件箱/网页剪藏` or `{VAULT}/01-收件箱/待整理`
-- Knowledge cards and notes: `{VAULT}/03-知识/<一级主题>/YYYYMMDD_主题.md`
-- Study notes and book notes: `{VAULT}/03-知识/书籍笔记/YYYYMMDD_主题.md`
+- Knowledge cards and notes: `{VAULT}/03-知识/论文笔记|学习笔记|some idea/YYYYMMDD_主题.md`
+- Study notes and book notes: `{VAULT}/03-知识/学习笔记/YYYYMMDD_主题.md`
 
 ## Rules
 

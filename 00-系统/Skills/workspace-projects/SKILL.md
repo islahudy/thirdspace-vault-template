@@ -21,28 +21,24 @@ triggers:
 先读：
 
 1. `{VAULT}/04-项目/WORKSPACE.md`
-2. `{VAULT}/00-系统/规范/06_项目工作区分类治理规则.md`
-3. `{VAULT}/.thirdspace/schema/subsystems.yaml`
+2. `{VAULT}/.thirdspace/schema/subsystems.yaml`
 
-## 一级分类
+## 一级目录
 
-按项目意图分类，而不是按历史来源分类：
+项目不预设分类；每个项目直接建一级目录并自行维护说明：
 
-| 分类 | project_type | 何时使用 |
-|---|---|---|
-| `内容创作` | `content` | 视频、文章、课程、栏目、选题、发布包 |
-| `产品系统` | `product` | 软件、工具、系统、插件、技术产品 |
-| `运营增长` | `operations` | 知识星球、社群、运营 SOP、内容矩阵、增长飞轮、数据追踪 |
-| `商业合作` | `business` | 客户线索、报价、合作方案、商业模式验证 |
-| `研究验证` | `research` | 阶段性调研、技术验证、方案探索 |
-| `实验原型` | `experiment` | MVP、原型、低成本试验、方向未定项目 |
+```text
+04-项目/YYYYMMDDHHMM_项目名/
+```
+
+不按项目意图预建分类目录（内容创作/产品系统/运营增长等已移除）。
 
 ## 文件创建
 
 - 项目目录使用 `YYYYMMDDHHMM_项目名/`。
 - 项目内允许 `brief.md`、`plan.md`、`assets.md`、`review.md`。
-- 项目内核心 Markdown 必须包含 `project` 字段。
-- 项目入口或核心文档应包含 `project_type`、`project_category`、`stage`。
+- 项目内核心 Markdown 必须包含 `project` 与 `stage` 字段。
+- `project_type` / `project_category` 不再作为枚举约束，项目维度自行写入 `tags` 或项目内说明文档。
 
 ## 分类审计
 
@@ -61,8 +57,9 @@ node {SKILLS}/thirdspace-vault/scripts/thirdspace-vault.mjs audit-projects --vau
 当前路径 | 建议分类 | 建议路径 | 置信度 | 理由 | 是否需要人工确认
 ```
 
-4. `confidence >= 0.8` 可以进入待执行清单。
-5. `confidence < 0.8` 必须人工确认。
+4. 项目不预设分类：审计只做项目名/结构规范建议，目标路径直接为 `04-项目/YYYYMMDDHHMM_项目名`，不做分类迁移。
+5. `confidence >= 0.8` 可以进入待执行清单。
+6. `confidence < 0.8` 必须人工确认。
 
 ## 跨分类移动
 
@@ -73,9 +70,9 @@ node {SKILLS}/thirdspace-vault/scripts/thirdspace-vault.mjs audit-projects --vau
 
 ## 自治维护回路
 
-1. 先判断项目类型：内容创作、产品系统、运营增长、研究验证或实验原型。
+1. 判断项目归属：无预设分类，项目自建一级目录（`YYYYMMDDHHMM_项目名`）。
 2. 读取项目内 `AGENTS.md`、`CLAUDE.md` 或局部 `.codex/skills`，如果存在。
-3. 创建或更新项目文件时补 `workspace=04-项目`、`project`、`project_type`、`project_category`、`stage`。
+3. 创建或更新项目文件时补 `workspace=04-项目`、`project`、`stage`。
 4. 产出类文件流向 `06-输出`，可复用知识流向 `03-知识`，长期资产索引流向 `05-资源`。
 5. 完结项目进入 `99-归档/完结项目`，并保留项目 trace。
 

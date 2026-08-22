@@ -278,9 +278,9 @@ assert.equal(readEvents(context.vaultRoot).at(-1).event_type, "task_status_chang
 assert.throws(() => transitionTask(context, task.id, "cancelled", {}), /confirmation required/);
 const project = registerProject(context, {
   id: "project_thirdspace", name: "ThirdSpace",
-  path: "04-项目/产品系统/20260822_ThirdSpace", status: "active", stage: "active",
+  path: "04-项目/20260822_ThirdSpace", status: "active", stage: "active",
 });
-assert.equal(project.path, "04-项目/产品系统/20260822_ThirdSpace");
+assert.equal(project.path, "04-项目/20260822_ThirdSpace");
 assert.throws(() => createTask(context, {
   title: "无效项目任务", priority: "normal", project_id: "project_missing",
 }), /project not found/);
@@ -468,7 +468,7 @@ Use `execFileSync(process.execPath, [cli, command, ...args])` and assert:
 assert.equal(runCli("opening", "--vault", target).required, true);
 const created = runCli("task-add", "--vault", target, "--title", "准备组会", "--priority", "high", "--tags", "科研,组会");
 assert.equal(created.task.title, "准备组会");
-const project = runCli("project-register", "--vault", target, "--id", "project_research", "--name", "研究项目", "--path", "04-项目/研究验证/20260822_研究项目");
+const project = runCli("project-register", "--vault", target, "--id", "project_research", "--name", "研究项目", "--path", "04-项目/20260822_研究项目");
 assert.equal(project.project.id, "project_research");
 assert.equal(runCli("reading-scan", "--vault", target).added.length, 1);
 assert.equal(runCli("opening-complete", "--vault", target, "--focus", created.task.id).state.last_daily_opening, "2026-08-22");
