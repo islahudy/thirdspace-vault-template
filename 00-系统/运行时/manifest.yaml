@@ -11,6 +11,10 @@ assets:
   claude_stop_hook: "00-系统/运行时/hooks/claude-stop-hook.sh"
   crontab: "00-系统/运行时/crontab/thirdspace-worklog.cron"
   codex_automation: "00-系统/运行时/automations/codex-thirdspace-worklog.yaml"
+  remote_event_readme: "00-系统/运行时/remote-events/README.md"
+  remote_git_event_hook: "00-系统/运行时/remote-events/git-post-commit.sh"
+  remote_agent_exit_token_hook: "00-系统/运行时/remote-events/agent-exit-token.sh"
+  remote_event_examples: "00-系统/运行时/remote-events/events.example.ndjson"
 
 # Obsidian 插件（随 vault 版本控制，init 时自动启用）
 obsidian_plugins:
