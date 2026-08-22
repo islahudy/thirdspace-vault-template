@@ -13,7 +13,7 @@ const TOKEN_COUNTERS = [
   "total_tokens",
 ];
 const MONTHLY_FILE = /^\d{6}\.ndjson$/;
-const TIMESTAMP_WITH_ZONE = /^\d{4}-\d{2}-\d{2}T.+(?:Z|[+-]\d{2}:\d{2})$/;
+const TIMESTAMP_WITH_ZONE = /^(\d{4})-(\d{2})-(\d{2})T.+(?:Z|[+-]\d{2}:\d{2})$/;
 
 function isPlainObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -25,6 +25,17 @@ function isNonEmptyString(value) {
 
 function isNullableNumber(value) {
   return value === null || (typeof value === "number" && Number.isFinite(value));
+}
+
+function isValidTimestamp(value) {
+  const match = value.match(TIMESTAMP_WITH_ZONE);
+  if (!match) return false;
+  const [, yearText, monthText, dayText] = match;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const daysInMonth = [31, (year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0)) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return month >= 1 && month <= 12 && day >= 1 && day <= daysInMonth[month - 1] && !Number.isNaN(Date.parse(value));
 }
 
 function atomicWrite(file, content) {
@@ -65,7 +76,7 @@ function commonValidation(event, sourceId) {
   }
   if (event.source_id !== sourceId) return "source_id does not match raw source";
   if (!REMOTE_TYPES.has(event.event_type)) return "unsupported event_type";
-  if (!TIMESTAMP_WITH_ZONE.test(event.timestamp) || Number.isNaN(Date.parse(event.timestamp))) return "invalid timestamp";
+  if (!isValidTimestamp(event.timestamp)) return "invalid timestamp";
   return null;
 }
 

@@ -69,6 +69,41 @@ function writeProjectIndex(root) {
   });
 }
 
+function remoteCommit(sourceId, eventId, timestamp = "2026-08-22T09:00:00+08:00") {
+  return {
+    schema_version: "1.0",
+    event_id: eventId,
+    timestamp,
+    event_type: "git_commit",
+    source_id: sourceId,
+    subject_id: "research-code",
+    repo: "research-code",
+    evidence: { commit: `${eventId}-commit` },
+  };
+}
+
+function remoteTokenUsage(sourceId, eventId, metrics = {}) {
+  return {
+    schema_version: "1.0",
+    event_id: eventId,
+    timestamp: "2026-08-22T09:00:00+08:00",
+    event_type: "token_usage",
+    source_id: sourceId,
+    subject_id: eventId,
+    repo: "research-code",
+    model: "gpt-5",
+    session_id: eventId,
+    metrics: {
+      input_tokens: 100,
+      output_tokens: 20,
+      cache_read_tokens: null,
+      cache_write_tokens: null,
+      total_tokens: 120,
+      ...metrics,
+    },
+  };
+}
+
 function runCli(root, ...args) {
   const cli = path.resolve(path.dirname(decodeURIComponent(new URL(import.meta.url).pathname)), "../scripts/daily-agent.mjs");
   return JSON.parse(execFileSync(process.execPath, [cli, ...args], {
@@ -292,6 +327,101 @@ test("event normalization canonicalizes mapped remote events and rejects invalid
     const rebuilt = normalizeEvents({ vaultRoot: root, now: "2026-08-22T09:00:00+08:00" });
     assert.equal(rebuilt.accepted, 2);
     assert.equal(fs.readFileSync(rebuilt.outputFiles[0], "utf8").trim().split("\n").length, 2);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("event normalization rejects calendar-invalid timestamps with source and line evidence", () => {
+  const root = temporaryVault();
+  try {
+    writeRawEvents(root, "183", [JSON.stringify(remoteCommit("183", "impossible-date", "2026-02-30T09:00:00+08:00"))]);
+
+    const result = normalizeEvents({ vaultRoot: root, now: "2026-08-22T09:00:00+08:00" });
+
+    assert.equal(result.accepted, 0);
+    assert.equal(result.rejected, 1);
+    assert.deepEqual(JSON.parse(fs.readFileSync(result.errorReport, "utf8")).errors, [
+      { source_id: "183", line: 1, reason: "invalid timestamp" },
+    ]);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("event normalization orders canonical records by timestamp, source, and event ID", () => {
+  const root = temporaryVault();
+  try {
+    writeRawEvents(root, "183", [
+      JSON.stringify(remoteCommit("183", "z-at-nine")),
+      JSON.stringify(remoteCommit("183", "a-at-nine")),
+      JSON.stringify(remoteCommit("183", "later", "2026-08-22T10:00:00+08:00")),
+    ]);
+    writeRawEvents(root, "184", [JSON.stringify(remoteCommit("184", "b-at-nine"))]);
+
+    const result = normalizeEvents({ vaultRoot: root, now: "2026-08-22T09:00:00+08:00" });
+    const records = fs.readFileSync(result.outputFiles[0], "utf8").trim().split("\n").map(JSON.parse);
+
+    assert.deepEqual(records.map((event) => `${event.source_id}:${event.event_id}`), [
+      "183:a-at-nine",
+      "183:z-at-nine",
+      "184:b-at-nine",
+      "183:later",
+    ]);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("event normalization keeps identical event IDs from separate sources", () => {
+  const root = temporaryVault();
+  try {
+    writeRawEvents(root, "183", [JSON.stringify(remoteCommit("183", "shared-id"))]);
+    writeRawEvents(root, "184", [JSON.stringify(remoteCommit("184", "shared-id"))]);
+
+    const result = normalizeEvents({ vaultRoot: root, now: "2026-08-22T09:00:00+08:00" });
+
+    assert.equal(result.accepted, 2);
+    assert.equal(result.duplicates, 0);
+    assert.deepEqual(fs.readFileSync(result.outputFiles[0], "utf8").trim().split("\n").map(JSON.parse)
+      .map((event) => `${event.source_id}:${event.event_id}`), ["183:shared-id", "184:shared-id"]);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("event normalization rejects non-numeric Token counters", () => {
+  const root = temporaryVault();
+  try {
+    writeRawEvents(root, "183", [JSON.stringify(remoteTokenUsage("183", "bad-counter", { output_tokens: "20" }))]);
+
+    const result = normalizeEvents({ vaultRoot: root, now: "2026-08-22T09:00:00+08:00" });
+
+    assert.equal(result.accepted, 0);
+    assert.equal(result.rejected, 1);
+    assert.deepEqual(JSON.parse(fs.readFileSync(result.errorReport, "utf8")).errors, [
+      { source_id: "183", line: 1, reason: "invalid token metric: output_tokens" },
+    ]);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("event normalization removes stale generated monthly files", () => {
+  const root = temporaryVault();
+  try {
+    const normalizedRoot = path.join(root, ".thirdspace", "events", "normalized");
+    fs.mkdirSync(normalizedRoot, { recursive: true });
+    fs.writeFileSync(path.join(normalizedRoot, "202607.ndjson"), '{"stale":true}\n', "utf8");
+    fs.writeFileSync(path.join(normalizedRoot, "notes.txt"), "keep\n", "utf8");
+    writeRawEvents(root, "183", [JSON.stringify(remoteCommit("183", "current"))]);
+
+    const result = normalizeEvents({ vaultRoot: root, now: "2026-08-22T09:00:00+08:00" });
+
+    assert.equal(fs.existsSync(path.join(normalizedRoot, "202607.ndjson")), false);
+    assert.equal(fs.existsSync(path.join(normalizedRoot, "202608.ndjson")), true);
+    assert.equal(fs.readFileSync(path.join(normalizedRoot, "notes.txt"), "utf8"), "keep\n");
+    assert.deepEqual(result.outputFiles, [path.join(normalizedRoot, "202608.ndjson")]);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
