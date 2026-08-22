@@ -27,3 +27,17 @@ export function groupTasks(tasks, today) {
   for (const values of Object.values(groups)) values.sort(prioritySort);
   return groups;
 }
+
+export function summarizeReading(state, now, staleDays = 7) {
+  const items = Array.isArray(state.items) ? state.items : [];
+  const candidates = Array.isArray(state.candidates) ? state.candidates : [];
+  const counts = { pending: 0, reading: 0, processed: 0, candidates: candidates.length };
+  for (const item of items) {
+    if (Object.hasOwn(counts, item.status)) counts[item.status] += 1;
+  }
+  const cutoff = new Date(now).getTime() - staleDays * 86_400_000;
+  const stale = items
+    .filter((item) => ["pending", "reading"].includes(item.status) && Number.isFinite(Date.parse(item.added_at)) && Date.parse(item.added_at) <= cutoff)
+    .sort((left, right) => Date.parse(left.added_at) - Date.parse(right.added_at));
+  return { counts, stale, candidates };
+}

@@ -689,3 +689,15 @@ body.theme-dark .ts-modal-btn {
 .ts-form-row { display: grid; grid-template-columns: 72px 1fr; gap: 10px; align-items: center; margin: 9px 0; }
 .ts-form-row label { color: var(--muted); font-size: 12px; }
 .ts-modal-input, .ts-modal-select { width: 100%; }
+
+/* Daily Agent reading queue */
+.ts-reading-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 12px 0; }
+.ts-reading-stat { padding: 8px 5px; border: 1px solid var(--border); border-radius: 6px; text-align: center; }
+.ts-reading-num { color: var(--ink); font-family: var(--mono); font-size: 17px; font-weight: 700; }
+.ts-reading-label { color: var(--muted); font-size: 9px; }
+.ts-reading-candidates { margin-bottom: 10px; padding: 7px 8px; border-left: 3px solid #c4922a; background: var(--cream); color: #a07020; font-size: 11px; }
+.ts-reading-heading { margin: 10px 0 4px; color: var(--muted); font-family: var(--mono); font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.ts-reading-row { padding: 7px 3px; border-bottom: 1px solid var(--border); cursor: pointer; }
+.ts-reading-row:hover .ts-reading-title { color: var(--rust); }
+.ts-reading-title { overflow: hidden; color: var(--ink-2); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.ts-reading-meta { margin-top: 2px; color: var(--muted); font-family: var(--mono); font-size: 9px; }

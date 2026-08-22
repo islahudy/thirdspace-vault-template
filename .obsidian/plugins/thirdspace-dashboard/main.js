@@ -72,6 +72,17 @@ function groupTasks(tasks, today) {
   for (const values of Object.values(groups)) values.sort(prioritySort);
   return groups;
 }
+function summarizeReading(state, now, staleDays = 7) {
+  const items = Array.isArray(state.items) ? state.items : [];
+  const candidates = Array.isArray(state.candidates) ? state.candidates : [];
+  const counts = { pending: 0, reading: 0, processed: 0, candidates: candidates.length };
+  for (const item of items) {
+    if (Object.hasOwn(counts, item.status)) counts[item.status] += 1;
+  }
+  const cutoff = new Date(now).getTime() - staleDays * 864e5;
+  const stale = items.filter((item) => ["pending", "reading"].includes(item.status) && Number.isFinite(Date.parse(item.added_at)) && Date.parse(item.added_at) <= cutoff).sort((left, right) => Date.parse(left.added_at) - Date.parse(right.added_at));
+  return { counts, stale, candidates };
+}
 
 // src/main.mjs
 var VIEW_TYPE = "thirdspace-dashboard";
@@ -278,6 +289,7 @@ var ThirdSpaceView = class extends import_obsidian.ItemView {
     this.renderWorkspaces(left, now);
     await this.renderTasks(left);
     this.renderToday(right);
+    await this.renderReading(right);
     this.renderQuick(right);
     this.renderRecent(right, files);
   }
@@ -426,6 +438,38 @@ var ThirdSpaceView = class extends import_obsidian.ItemView {
       card.addEventListener("click", () => this.app.workspace.getLeaf(false).openFile(file));
     }
   }
+  async renderReading(container) {
+    const card = container.createDiv({ cls: "ts-card ts-reading-card" });
+    const head = card.createDiv({ cls: "ts-card-head" });
+    head.createDiv({ cls: "ts-card-label", text: "READING QUEUE" });
+    head.createEl("button", { text: "\u6253\u5F00\u6536\u4EF6\u7BB1", cls: "ts-small-btn" }).addEventListener("click", () => this.openMostRecent("01-\u6536\u4EF6\u7BB1"));
+    let state;
+    try {
+      state = await this.store.read("reading-queue.json", "items");
+    } catch (error) {
+      card.createDiv({ cls: "ts-warning", text: `Reading store unavailable: ${error.message}` });
+      return;
+    }
+    const summary = summarizeReading(state, (/* @__PURE__ */ new Date()).toISOString(), 7);
+    const stats = card.createDiv({ cls: "ts-reading-stats" });
+    for (const [label, value] of [["\u5F85\u9605\u8BFB", summary.counts.pending], ["\u9605\u8BFB\u4E2D", summary.counts.reading], ["\u5DF2\u5904\u7406", summary.counts.processed]]) {
+      const item = stats.createDiv({ cls: "ts-reading-stat" });
+      item.createDiv({ cls: "ts-reading-num", text: String(value) });
+      item.createDiv({ cls: "ts-reading-label", text: label });
+    }
+    if (summary.counts.candidates) card.createDiv({ cls: "ts-reading-candidates", text: `${summary.counts.candidates} \u6761\u5019\u9009\u5185\u5BB9\u7B49\u5F85\u786E\u8BA4` });
+    if (!summary.stale.length) {
+      card.createDiv({ cls: "ts-empty", text: "\u6682\u65E0\u8D85\u8FC7 7 \u5929\u7684\u9605\u8BFB\u79EF\u538B" });
+      return;
+    }
+    card.createDiv({ cls: "ts-reading-heading", text: `\u8D85\u8FC7 7 \u5929 \xB7 ${summary.stale.length}` });
+    for (const item of summary.stale.slice(0, 5)) {
+      const row = card.createDiv({ cls: "ts-reading-row" });
+      row.createDiv({ cls: "ts-reading-title", text: item.title || item.source_path || item.id });
+      row.createDiv({ cls: "ts-reading-meta", text: `${item.kind || "reading"} \xB7 ${item.status}` });
+      if (item.source_path) row.addEventListener("click", () => this.openPath(item.source_path));
+    }
+  }
   renderQuick(container) {
     const card = container.createDiv({ cls: "ts-card" });
     card.createDiv({ cls: "ts-card-label", text: "QUICK" });
@@ -446,6 +490,11 @@ var ThirdSpaceView = class extends import_obsidian.ItemView {
     const file = this.app.vault.getFiles().filter((item) => item.path.startsWith(`${prefix}/`)).sort((a, b) => b.stat.mtime - a.stat.mtime)[0];
     if (file) await this.app.workspace.getLeaf(false).openFile(file);
     else new import_obsidian.Notice(`No files under ${prefix}`);
+  }
+  async openPath(path) {
+    const file = this.app.vault.getAbstractFileByPath((0, import_obsidian.normalizePath)(path));
+    if (file?.path) await this.app.workspace.getLeaf(false).openFile(file);
+    else new import_obsidian.Notice(`File not found: ${path}`);
   }
   createNote() {
     new QuickNoteModal(this.app, async (title) => {

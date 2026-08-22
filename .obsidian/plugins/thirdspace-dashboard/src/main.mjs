@@ -1,6 +1,6 @@
 import { ItemView, Modal, Notice, Plugin, normalizePath } from "obsidian";
 import { parseState, prepareMutation } from "./state.mjs";
-import { filterTasks, groupTasks } from "./models.mjs";
+import { filterTasks, groupTasks, summarizeReading } from "./models.mjs";
 
 const VIEW_TYPE = "thirdspace-dashboard";
 const WORKSPACES = ["00-系统", "01-收件箱", "02-日记", "03-知识", "04-项目", "05-资源", "06-输出", "99-归档"];
@@ -188,6 +188,7 @@ class ThirdSpaceView extends ItemView {
     this.renderWorkspaces(left, now);
     await this.renderTasks(left);
     this.renderToday(right);
+    await this.renderReading(right);
     this.renderQuick(right);
     this.renderRecent(right, files);
   }
@@ -327,6 +328,38 @@ class ThirdSpaceView extends ItemView {
       card.addEventListener("click", () => this.app.workspace.getLeaf(false).openFile(file));
     }
   }
+  async renderReading(container) {
+    const card = container.createDiv({ cls: "ts-card ts-reading-card" });
+    const head = card.createDiv({ cls: "ts-card-head" });
+    head.createDiv({ cls: "ts-card-label", text: "READING QUEUE" });
+    head.createEl("button", { text: "打开收件箱", cls: "ts-small-btn" }).addEventListener("click", () => this.openMostRecent("01-收件箱"));
+    let state;
+    try {
+      state = await this.store.read("reading-queue.json", "items");
+    } catch (error) {
+      card.createDiv({ cls: "ts-warning", text: `Reading store unavailable: ${error.message}` });
+      return;
+    }
+    const summary = summarizeReading(state, new Date().toISOString(), 7);
+    const stats = card.createDiv({ cls: "ts-reading-stats" });
+    for (const [label, value] of [["待阅读", summary.counts.pending], ["阅读中", summary.counts.reading], ["已处理", summary.counts.processed]]) {
+      const item = stats.createDiv({ cls: "ts-reading-stat" });
+      item.createDiv({ cls: "ts-reading-num", text: String(value) });
+      item.createDiv({ cls: "ts-reading-label", text: label });
+    }
+    if (summary.counts.candidates) card.createDiv({ cls: "ts-reading-candidates", text: `${summary.counts.candidates} 条候选内容等待确认` });
+    if (!summary.stale.length) {
+      card.createDiv({ cls: "ts-empty", text: "暂无超过 7 天的阅读积压" });
+      return;
+    }
+    card.createDiv({ cls: "ts-reading-heading", text: `超过 7 天 · ${summary.stale.length}` });
+    for (const item of summary.stale.slice(0, 5)) {
+      const row = card.createDiv({ cls: "ts-reading-row" });
+      row.createDiv({ cls: "ts-reading-title", text: item.title || item.source_path || item.id });
+      row.createDiv({ cls: "ts-reading-meta", text: `${item.kind || "reading"} · ${item.status}` });
+      if (item.source_path) row.addEventListener("click", () => this.openPath(item.source_path));
+    }
+  }
   renderQuick(container) {
     const card = container.createDiv({ cls: "ts-card" });
     card.createDiv({ cls: "ts-card-label", text: "QUICK" });
@@ -347,6 +380,11 @@ class ThirdSpaceView extends ItemView {
     const file = this.app.vault.getFiles().filter((item) => item.path.startsWith(`${prefix}/`)).sort((a, b) => b.stat.mtime - a.stat.mtime)[0];
     if (file) await this.app.workspace.getLeaf(false).openFile(file);
     else new Notice(`No files under ${prefix}`);
+  }
+  async openPath(path) {
+    const file = this.app.vault.getAbstractFileByPath(normalizePath(path));
+    if (file?.path) await this.app.workspace.getLeaf(false).openFile(file);
+    else new Notice(`File not found: ${path}`);
   }
   createNote() {
     new QuickNoteModal(this.app, async (title) => {

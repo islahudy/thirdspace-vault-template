@@ -4,7 +4,7 @@ import path from "node:path";
 import test from "node:test";
 
 import { parseState, prepareMutation } from "../src/state.mjs";
-import { filterTasks, groupTasks } from "../src/models.mjs";
+import { filterTasks, groupTasks, summarizeReading } from "../src/models.mjs";
 
 const pluginRoot = path.resolve(path.dirname(decodeURIComponent(new URL(import.meta.url).pathname)), "..");
 
@@ -60,4 +60,19 @@ test("task model filters by tag, project, and completed visibility", () => {
   ];
   assert.deepEqual(filterTasks(tasks, { tag: "科研", projectId: "p1", showCompleted: false }).map((task) => task.id), ["a"]);
   assert.deepEqual(filterTasks(tasks, { tag: "科研", projectId: "p1", showCompleted: true }).map((task) => task.id), ["a", "b"]);
+});
+
+test("reading model summarizes backlog, candidates, and stale items", () => {
+  const state = {
+    items: [
+      { id: "old", status: "pending", added_at: "2026-08-01T09:00:00+08:00" },
+      { id: "new", status: "pending", added_at: "2026-08-21T09:00:00+08:00" },
+      { id: "reading", status: "reading", added_at: "2026-08-10T09:00:00+08:00" },
+      { id: "done", status: "processed", added_at: "2026-08-02T09:00:00+08:00" },
+    ],
+    candidates: [{ id: "candidate" }],
+  };
+  const summary = summarizeReading(state, "2026-08-22T09:00:00+08:00", 7);
+  assert.deepEqual(summary.counts, { pending: 2, reading: 1, processed: 1, candidates: 1 });
+  assert.deepEqual(summary.stale.map((item) => item.id), ["old", "reading"]);
 });
