@@ -170,6 +170,50 @@ test("git ignores only the machine-local remote event source config", () => {
   assert.equal(ignored, ".thirdspace/config/remote-event-sources.local.yaml");
 });
 
+test("Daily Agent reporting config and generated report inputs stay local", () => {
+  const contract = fs.readFileSync(path.join(vaultRoot, ".thirdspace/schema/daily-agent.yaml"), "utf8");
+  assert.match(contract, /reporting:\n  timezone: "Asia\/Shanghai"\n  input_root: "\.thirdspace\/data\/daily-agent\/report-input"\n  output_root: "02-日记\/复盘"/);
+
+  for (const relative of [
+    ".thirdspace/config/remote-event-sources.local.yaml",
+    ".thirdspace/data/daily-agent/report-input/2026-W34.json",
+  ]) {
+    const ignored = execFileSync("git", ["check-ignore", relative], { cwd: vaultRoot, encoding: "utf8" }).trim();
+    assert.equal(ignored, relative);
+  }
+});
+
+test("Phase 3 distribution publishes remote reporting assets and intent routing", () => {
+  for (const relative of [
+    "00-系统/运行时/remote-events/README.md",
+    "00-系统/运行时/remote-events/git-post-commit.sh",
+    "00-系统/运行时/remote-events/agent-exit-token.sh",
+    "00-系统/运行时/remote-events/events.example.ndjson",
+    "00-系统/Skills/daily-agent/scripts/lib/remote-config.mjs",
+    "00-系统/Skills/daily-agent/scripts/lib/remote-sync.mjs",
+    "00-系统/Skills/daily-agent/scripts/lib/normalizer.mjs",
+    "00-系统/Skills/daily-agent/scripts/lib/aggregator.mjs",
+    "00-系统/Skills/daily-agent/scripts/lib/reviews.mjs",
+    "00-系统/Skills/daily-agent/templates/weekly-review.md",
+    "00-系统/Skills/daily-agent/templates/monthly-review.md",
+    "00-系统/Skills/daily-agent/references/remote-event-protocol.md",
+    "00-系统/Skills/daily-agent/references/reporting.md",
+  ]) {
+    assert.equal(fs.existsSync(path.join(vaultRoot, relative)), true, `missing Phase 3 asset: ${relative}`);
+  }
+
+  const cli = fs.readFileSync(path.join(vaultRoot, "00-系统/Skills/daily-agent/scripts/daily-agent.mjs"), "utf8");
+  for (const command of ["remote-sync", "events-normalize", "report-aggregate", "review-generate"]) {
+    assert.match(cli, new RegExp(`command === ["']${command}["']`), `Daily Agent CLI does not expose ${command}`);
+  }
+
+  const tools = fs.readFileSync(path.join(vaultRoot, ".thirdspace/schema/workspace-tools.yaml"), "utf8");
+  const dailyAgentRouting = tools.match(/daily_agent:\n([\s\S]*?)(?=\n\s{6}\S|\n\n\s{2}"03-知识")/)?.[1] || "";
+  for (const intent of ["日常管理", "同步远端记录", "生成周报", "生成月报"]) {
+    assert.match(dailyAgentRouting, new RegExp(intent), `Daily Agent routing is missing intent: ${intent}`);
+  }
+});
+
 test("canonical schemas expose every supported type and status", () => {
   assert.deepEqual(readYamlList(path.join(vaultRoot, ".thirdspace/schema/taxonomy.yaml"), "type_values"), [
     "note", "card", "article", "voiceover", "script", "deck", "review", "reflection", "worklog",

@@ -4,7 +4,7 @@ type: "spec"
 topic: "system"
 workspace: "00-系统"
 created: "2026-08-22 00:00:00"
-modified: "2026-08-22 12:00:00"
+modified: "2026-08-22 18:18:00"
 tags: ["system", "spec", "pi-agent", "daily-management"]
 source: "manual"
 status: "active"
@@ -286,20 +286,23 @@ pending -> reading -> processed
 
 每个 Hook 只追加一行 JSON。Git Hook 记录提交、文件和代码行指标；Token 指标由远端 AI 工具或 Agent Hook 单独写入。
 
-服务器地址和仓库映射保存在本机私有配置：
+服务器地址保存在 Vault 内本机私有配置，仓库到项目的映射由 `project-index.json` 维护：
 
 ```text
-~/.thirdspace/daily-agent.yaml
+.thirdspace/config/remote-event-sources.local.yaml
 ```
 
 ```yaml
-remote_sources:
-  - id: lab-server
+version: "1.0"
+timezone: "Asia/Shanghai"
+sources:
+  - source_id: lab-server
     ssh_host: lab-server
-    remote_file: /var/lib/thirdspace/events.ndjson
-    repo_projects:
-      research-code: project_research
+    remote_path: /var/lib/thirdspace/events.ndjson
+    enabled: true
 ```
+
+实际配置由 `.thirdspace/schema/remote-event-sources.example.yaml` 复制而来，不纳入 Git，不保存 SSH 密码、私钥或 Token。
 
 同步流程：
 
@@ -311,6 +314,8 @@ remote_sources:
 6. 写入 normalized 事件流并更新同步游标。
 
 单个服务器不可访问时不阻断报告生成；报告必须明确标注该来源数据缺失。
+
+远端事件处理是脚本数据面：`.thirdspace/events/remote/` 的原始副本和 `.thirdspace/events/normalized/` 的归一化流都不得由 Agent 直接读取、摘要或放入模型上下文。Agent 只调用命令，向用户展示计数、路径和有界摘要。
 
 ## 8. 周报与月报
 
@@ -335,6 +340,14 @@ remote_sources:
 评价维度包括推进度、聚焦度、阅读维护、项目健康和风险。缺失的数据必须标记为未知，不得按零活动解释。
 
 月报分析完成量、积压量、计划兑现率、项目阶段、阅读吞吐、Git/Agent 活动和 Token 趋势，并总结主要成果、反复阻塞和下月建议。月报不是周报的机械拼接。
+
+生成时严格执行：
+
+```text
+remote-sync -> events-normalize -> report-aggregate -> review-generate
+```
+
+`report-aggregate` 只生成有界 `ReportInput`，排除原始行、Prompt、Transcript、文件内容和任意事件字段；`review-generate` 由脚本读取该输入并保留受管标记外的用户文字。Agent 只输出计数、生成路径、commit/Token session/完成事项/已处理阅读的有界合计，以及简短覆盖缺口警告。
 
 ## 9. 自治权限
 
@@ -437,8 +450,11 @@ Wiki 发布必须始终需要用户确认。以后实现 MCP Adapter 时不得�
 
 ### 第三阶段：事件与报告
 
-- 实现远端事件协议、SSH 拉取、去重和归一化。
-- 实现周报、月报模板与证据聚合。
+- [x] 实现远端事件协议、SSH 拉取、去重和归一化。
+- [x] 实现周报、月报模板与证据聚合。
+- [x] 发布 Daily Agent 意图路由、运维文档和受限上下文边界。
+
+第三阶段已于 2026-08-22 通过完整验收：Daily Agent 与分发测试全部通过，`audit-subsystems`、`audit-workspaces`、`audit-skill-locations`、`audit-system` 均为零警告、零错误，`git diff --check` 通过。
 
 ### 第四阶段：自动化与外部连接
 

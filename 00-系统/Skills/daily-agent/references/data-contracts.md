@@ -1,3 +1,15 @@
+---
+title: "Daily Agent 数据契约"
+type: "spec"
+topic: "system"
+workspace: "00-系统"
+created: "2026-08-22 00:00:00"
+modified: "2026-08-22 00:00:00"
+tags: [system, daily-agent, data-contracts]
+source: "agent"
+status: "active"
+---
+
 # Daily Agent Data Contracts
 
 ## State Files
@@ -38,3 +50,15 @@ Required: `id`, `name`, `path`, `status`, `stage`, `repo_mappings`. `path` must 
 ## Event
 
 Required: `schema_version`, `event_id`, `timestamp`, `event_type`, `source_id`, `subject_id`. Events append to `.thirdspace/events/local/YYYYMMDD.ndjson`; corrections are new events, never rewrites.
+
+Remote producers append only `git_commit` and `token_usage` records. `remote-sync` replaces the local raw snapshot at `.thirdspace/events/remote/<source-id>/raw/events.ndjson`; `events-normalize` validates, deduplicates by `source_id + event_id`, applies repository mappings, and rebuilds `.thirdspace/events/normalized/YYYYMM.ndjson`.
+
+Raw and normalized NDJSON are private script inputs. They are never Agent reading targets and must not be copied into prompts, chat responses, reports, or worklogs.
+
+## Report Input
+
+`report-aggregate` writes a bounded `version: "1.0"` object under `.thirdspace/data/daily-agent/report-input/<period-id>.json`. It contains only the period, aggregate Git/Token metrics, projected task/reading/project fields, and coverage counts. It excludes raw lines, file contents, prompts, transcripts, and arbitrary event fields.
+
+Report inputs are generated local state and remain ignored by Git. The Agent consumes only the CLI-returned path and bounded summary; `review-generate` reads the saved report input as a script implementation detail.
+
+See `remote-event-protocol.md` for producer and normalization rules, and `reporting.md` for weekly/monthly generation.

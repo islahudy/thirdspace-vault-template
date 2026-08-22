@@ -31,7 +31,7 @@ workspace_skills:
         triggers: [复盘, 回顾, 周报, 月报]
       daily_agent:
         skill: daily-agent
-        triggers: [今日计划, 遗留事项, 待办, DDL, 阅读积压, 开始今天, 日常管理]
+        triggers: [今日计划, 遗留事项, 待办, DDL, 阅读积压, 开始今天, 日常管理, 同步远端记录, 生成周报, 生成月报]
 
   "03-知识":
     primary: workspace-knowledge

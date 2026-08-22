@@ -190,6 +190,23 @@ function relevantMonths(startTime, endTime) {
   return months;
 }
 
+function compareText(left, right) {
+  const leftText = String(left);
+  const rightText = String(right);
+  if (leftText < rightText) return -1;
+  if (leftText > rightText) return 1;
+  return 0;
+}
+
+function defineRecordEntry(record, key, value) {
+  Object.defineProperty(record, key, {
+    value,
+    enumerable: true,
+    configurable: true,
+    writable: true,
+  });
+}
+
 function normalizedEvents(vaultRoot, start, end) {
   const root = path.join(vaultRoot, ".thirdspace", "events", "normalized");
   if (!fs.existsSync(root)) return [];
@@ -221,8 +238,8 @@ function normalizedEvents(vaultRoot, start, end) {
   }
   return events.sort((left, right) => (
     Date.parse(left.timestamp) - Date.parse(right.timestamp)
-    || String(left.source_id).localeCompare(String(right.source_id))
-    || String(left.event_id).localeCompare(String(right.event_id))
+    || compareText(left.source_id, right.source_id)
+    || compareText(left.event_id, right.event_id)
   ));
 }
 
@@ -258,15 +275,15 @@ function gitAggregation(events) {
     });
   }
   const byProject = {};
-  for (const projectId of [...groups.keys()].sort()) {
+  for (const projectId of [...groups.keys()].sort(compareText)) {
     const project = emptyGitSummary();
     const byRepo = {};
-    for (const repo of [...groups.get(projectId).keys()].sort()) {
+    for (const repo of [...groups.get(projectId).keys()].sort(compareText)) {
       const repoSummary = groups.get(projectId).get(repo);
       for (const field of Object.keys(project)) project[field] += repoSummary[field];
-      byRepo[repo] = repoSummary;
+      defineRecordEntry(byRepo, repo, repoSummary);
     }
-    byProject[projectId] = { ...project, by_repo: byRepo };
+    defineRecordEntry(byProject, projectId, { ...project, by_repo: byRepo });
   }
   return { total, by_project: byProject };
 }
@@ -295,9 +312,9 @@ function tokenAggregation(events) {
     }
   }
   const byModel = {};
-  for (const model of [...groups.keys()].sort()) {
+  for (const model of [...groups.keys()].sort(compareText)) {
     const group = groups.get(model);
-    byModel[model] = { sessions: group.sessions };
+    defineRecordEntry(byModel, model, { sessions: group.sessions });
     for (const field of TOKEN_COUNTERS) {
       byModel[model][field] = group.unknown.has(field) ? null : group.totals[field];
     }
@@ -308,7 +325,7 @@ function tokenAggregation(events) {
 function compareBy(fields) {
   return (left, right) => {
     for (const field of fields) {
-      const compared = String(left[field] ?? "").localeCompare(String(right[field] ?? ""));
+      const compared = compareText(left[field] ?? "", right[field] ?? "");
       if (compared) return compared;
     }
     return 0;
@@ -418,9 +435,9 @@ export function aggregateReport(context, options = {}) {
     reading: readingAggregation(reading, period.start, period.end),
     projects: projectAggregation(projects, events),
     coverage: {
-      sources: [...new Set(events.map((event) => event.source_id))].sort(),
+      sources: [...new Set(events.map((event) => event.source_id))].sort(compareText),
       rejected_events: rejectedEventCount(context.vaultRoot),
-      unmapped_repos: [...new Set(events.filter((event) => !event.project_id && event.repo).map((event) => event.repo))].sort(),
+      unmapped_repos: [...new Set(events.filter((event) => !event.project_id && event.repo).map((event) => event.repo))].sort(compareText),
       missing_token_fields: tokenResult.missingFields,
     },
   };

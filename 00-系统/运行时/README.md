@@ -15,6 +15,7 @@ source: "agent"
 - `hooks/`：Git hook 模板。
 - `crontab/`：crontab 模板。
 - `automations/`：Codex 或其他 Agent 平台的自动化任务规格。
+- `remote-events/`：远端 Git/Agent Exit 事件生产器、示例和服务器端安装说明。
 - `manifest.yaml`：当前运行时资产索引（路径无关，无硬编码绝对路径）。
 
 ## 初始化（新机器）
@@ -34,6 +35,14 @@ cat "$VAULT/.thirdspace/workspace-index.yaml"
 ```
 
 `{SKILLS}` = ThirdSpace skills 根目录（vault 内相对路径 `./00-系统/Skills`，即 `{VAULT}/00-系统/Skills`）。
+
+## 远端事件与报告
+
+1. 按 `remote-events/README.md` 将生产器复制到远端主机；生产器只追加元数据和聚合计数。
+2. 在本机从 `.thirdspace/schema/remote-event-sources.example.yaml` 复制出 `.thirdspace/config/remote-event-sources.local.yaml`，填写 SSH alias 和绝对远端路径。该文件仅留在本机。
+3. 由 Daily Agent 按 `remote-sync -> events-normalize -> report-aggregate -> review-generate` 执行。
+
+NDJSON 原始副本和归一化流只是脚本输入，不是 Agent 读取目标。Agent 只向用户展示计数、生成路径和有界聚合摘要。单个远端来源失败时保留其他来源结果，并在报告中标记覆盖缺口。
 
 ## Obsidian 插件
 

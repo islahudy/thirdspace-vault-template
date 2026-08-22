@@ -1,6 +1,6 @@
 ---
 name: daily-agent
-description: Use when the user starts the day, reviews remaining work, manages priorities or deadlines, checks paper/blog reading backlog, chooses today’s focus, or asks for daily personal research operations.
+description: Use when the user starts the day, reviews remaining work, manages priorities or deadlines, checks paper/blog reading backlog, chooses today’s focus, synchronizes remote records, or generates weekly/monthly reviews.
 ---
 
 # Daily Agent
@@ -39,6 +39,25 @@ If `opening` returns `required: false`, do not repeat the flow unless the user e
 | Accept/reject a candidate, cancel a task, change project stage, move/archive/publish | Ask first |
 | Delete history, rewrite raw events, change Git history, store secrets | Never |
 
+## Remote Reporting Flow
+
+For “同步远端记录”, “生成周报”, or “生成月报”, preserve this order:
+
+```text
+remote-sync -> events-normalize -> report-aggregate -> review-generate
+```
+
+Use the scripts as the data plane. Raw files under `.thirdspace/events/remote/` and normalized files under `.thirdspace/events/normalized/` are script inputs, not Agent reading targets. Do not open, quote, summarize, or place those streams in model context.
+
+To the user, print only:
+
+- sync/normalization counts and generated paths;
+- generated aggregate/review paths;
+- the bounded totals returned by `report-aggregate` (`commits`, `token_sessions`, `completed_tasks`, and `processed_readings`);
+- a short bounded coverage warning when sources fail or events are rejected.
+
+Never print event records, raw lines, normalized payloads, prompts, transcripts, tool calls, file contents, or credentials. Stop on command errors and report the bounded stderr message; do not inspect an event stream to repair it.
+
 ## Commands
 
 ```bash
@@ -49,6 +68,10 @@ node scripts/daily-agent.mjs task-transition --vault {VAULT} --id ID --status co
 node scripts/daily-agent.mjs reading-scan --vault {VAULT}
 node scripts/daily-agent.mjs reading-confirm --vault {VAULT} --id ID --decision accept
 node scripts/daily-agent.mjs opening-complete --vault {VAULT} --focus ID1,ID2
+node scripts/daily-agent.mjs remote-sync --vault {VAULT}
+node scripts/daily-agent.mjs events-normalize --vault {VAULT}
+node scripts/daily-agent.mjs report-aggregate --vault {VAULT} --kind weekly --date YYYY-MM-DD
+node scripts/daily-agent.mjs review-generate --vault {VAULT} --kind weekly --date YYYY-MM-DD
 ```
 
 All commands return one JSON value. On error, stop and report stderr; do not repair or overwrite damaged state.
@@ -57,6 +80,8 @@ All commands return one JSON value. On error, stop and report stderr; do not rep
 
 - Field definitions: `references/data-contracts.md`
 - Conversation contract: `references/daily-opening.md`
+- Remote producer, sync, and normalization protocol: `references/remote-event-protocol.md`
+- Weekly/monthly aggregation and review workflow: `references/reporting.md`
 
 ## Common Mistakes
 
@@ -65,3 +90,5 @@ All commands return one JSON value. On error, stop and report stderr; do not rep
 - Accepting an uncertain reading candidate without confirmation.
 - Turning paper reading into ordinary tasks instead of queue items.
 - Copying project plans into JSON instead of linking `04-项目` Markdown.
+- Reading raw or normalized event streams into Agent context.
+- Running `review-generate` before the preceding sync, normalization, and aggregation steps.

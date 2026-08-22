@@ -397,6 +397,40 @@ test("report aggregation is deterministic, deduplicated, bounded, and preserves 
   }
 });
 
+test("report aggregation preserves prototype-like grouping keys and uses locale-independent ordering", () => {
+  const root = temporaryVault();
+  try {
+    writeJson(path.join(root, ".thirdspace", "data", "daily-agent", "tasks.json"), {
+      version: "1.0", revision: 0, updated_at: null, tasks: [],
+    });
+    writeJson(path.join(root, ".thirdspace", "data", "daily-agent", "reading-queue.json"), {
+      version: "1.0", revision: 0, updated_at: null, items: [], candidates: [], dismissed_source_paths: [],
+    });
+    writeJson(path.join(root, ".thirdspace", "data", "daily-agent", "project-index.json"), {
+      version: "1.0", revision: 0, updated_at: null, projects: [],
+    });
+    writeNormalizedEvents(root, "202608", [
+      normalizedCommit("proto-project", "2026-08-18T09:00:00+08:00", { project_id: "__proto__", repo: "z-repo" }),
+      normalizedCommit("accent-project", "2026-08-18T10:00:00+08:00", { project_id: "ä-project", repo: "ä-repo" }),
+      normalizedCommit("ascii-project", "2026-08-18T11:00:00+08:00", { project_id: "z-project", repo: "z-repo" }),
+      normalizedToken("proto-model", "2026-08-18T12:00:00+08:00", { model: "__proto__" }),
+      normalizedToken("accent-model", "2026-08-18T13:00:00+08:00", { model: "ä-model" }),
+      normalizedToken("ascii-model", "2026-08-18T14:00:00+08:00", { model: "z-model" }),
+    ]);
+
+    const report = aggregateReport(
+      { vaultRoot: root, now: "2026-08-24T08:00:00+08:00", timezone: "Asia/Shanghai" },
+      { kind: "weekly", referenceDate: "2026-08-23" },
+    );
+
+    assert.deepEqual(Object.keys(report.git.by_project), ["__proto__", "z-project", "ä-project"]);
+    assert.deepEqual(Object.keys(report.git.by_project.__proto__.by_repo), ["z-repo"]);
+    assert.deepEqual(Object.keys(report.tokens.by_model), ["__proto__", "z-model", "ä-model"]);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("report-aggregate CLI exposes weekly, monthly, and custom bounded summaries", () => {
   const root = temporaryVault();
   try {
