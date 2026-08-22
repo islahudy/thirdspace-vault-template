@@ -22,6 +22,15 @@ opening:
   due_soon_hours: 24
   upcoming_days: 3
 
+events:
+  remote_types: [git_commit, token_usage]
+  normalized_root: ".thirdspace/events/normalized"
+
+reporting:
+  timezone: "Asia/Shanghai"
+  input_root: ".thirdspace/data/daily-agent/report-input"
+  output_root: "02-日记/复盘"
+
 permissions:
   auto: [create_task, update_task, confirm_completion, enroll_tagged_reading, write_daily_plan, append_event]
   confirm: [cancel_task, enroll_candidate, change_project_stage, move_workspace, archive_project, publish_external]

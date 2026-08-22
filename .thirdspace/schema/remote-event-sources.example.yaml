@@ -1,0 +1,7 @@
+version: "1.0"
+timezone: "Asia/Shanghai"
+sources:
+  - source_id: "183"
+    ssh_host: "183"
+    remote_path: "/nas/users/xxxiang/person/events.ndjson"
+    enabled: true

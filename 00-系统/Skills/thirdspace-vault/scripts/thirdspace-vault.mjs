@@ -534,7 +534,7 @@ function initVault(vaultRoot, args = {}) {
   }
   files += writeIfMissing(path.join(vaultRoot, ".thirdspace", "workspace-index.yaml"), renderWorkspaceIndex(vaultRoot)) ? 1 : 0;
   const sourceSchemaRoot = path.resolve(path.dirname(scriptFilePath()), "..", "..", "..", "..", ".thirdspace", "schema");
-  for (const schema of ["taxonomy.yaml", "frontmatter.yaml", "subsystems.yaml", "event-capture.yaml", "workspace-tools.yaml", "daily-agent.yaml"]) {
+  for (const schema of ["taxonomy.yaml", "frontmatter.yaml", "subsystems.yaml", "event-capture.yaml", "workspace-tools.yaml", "daily-agent.yaml", "remote-event-sources.example.yaml"]) {
     const source = path.join(sourceSchemaRoot, schema);
     if (!fs.existsSync(source)) throw new Error(`canonical schema missing: ${source}`);
     files += writeIfMissing(path.join(vaultRoot, ".thirdspace", "schema", schema), fs.readFileSync(source, "utf8")) ? 1 : 0;
@@ -1629,6 +1629,7 @@ function auditSubsystems(vaultRoot, args = {}) {
     ".thirdspace/schema/event-capture.yaml",
     ".thirdspace/schema/workspace-tools.yaml",
     ".thirdspace/schema/daily-agent.yaml",
+    ".thirdspace/schema/remote-event-sources.example.yaml",
   ];
 
   for (const relative of schemaFiles) {

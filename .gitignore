@@ -24,11 +24,13 @@
 # ── ThirdSpace 机器级配置（不 commit）──────────────────────
 # 本机 vault 路径配置（可选）
 .thirdspace/config.yaml
+.thirdspace/config/remote-event-sources.local.yaml
 # 本机生成的审计、迁移、处理队列与事件日志
 .thirdspace/reports/
 .thirdspace/manifests/
 .thirdspace/queues/
 .thirdspace/events/
+.thirdspace/data/daily-agent/report-input/
 
 # ── 系统 ─────────────────────────────────────────────────────
 .worktrees/

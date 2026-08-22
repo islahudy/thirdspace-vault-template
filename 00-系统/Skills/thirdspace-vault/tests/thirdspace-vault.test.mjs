@@ -57,10 +57,27 @@ test("init creates exactly the canonical schema set", () => {
       "daily-agent.yaml",
       "event-capture.yaml",
       "frontmatter.yaml",
+      "remote-event-sources.example.yaml",
       "subsystems.yaml",
       "taxonomy.yaml",
       "workspace-tools.yaml",
     ]);
+  } finally {
+    fs.rmSync(target, { recursive: true, force: true });
+  }
+});
+
+test("init distributes the canonical remote event source contract", () => {
+  const target = fs.mkdtempSync(path.join(os.tmpdir(), "thirdspace-remote-sources-"));
+  try {
+    run("init", "--vault", target);
+    const sourceSchemaPath = path.join(target, ".thirdspace/schema/remote-event-sources.example.yaml");
+    assert.equal(fs.existsSync(sourceSchemaPath), true);
+    assert.match(fs.readFileSync(sourceSchemaPath, "utf8"), /^version: "1.0"\ntimezone: "Asia\/Shanghai"\nsources:\n  - source_id: "183"\n    ssh_host: "183"\n    remote_path: "\/nas\/users\/xxxiang\/person\/events\.ndjson"\n    enabled: true\n$/);
+
+    const audit = run("audit-subsystems", "--vault", target);
+    const sourceCheck = audit.checks.find((check) => check.path === ".thirdspace/schema/remote-event-sources.example.yaml");
+    assert.equal(sourceCheck?.severity, "ok");
   } finally {
     fs.rmSync(target, { recursive: true, force: true });
   }
@@ -144,6 +161,13 @@ test("git ignores machine-local Obsidian state and ThirdSpace events", () => {
   for (const relative of [".obsidian/workspace.json", ".thirdspace/events/session.ndjson"]) {
     execFileSync("git", ["-C", vaultRoot, "check-ignore", "--quiet", relative]);
   }
+});
+
+test("git ignores only the machine-local remote event source config", () => {
+  const ignored = execFileSync("git", ["check-ignore", ".thirdspace/config/remote-event-sources.local.yaml"], {
+    cwd: vaultRoot, encoding: "utf8",
+  }).trim();
+  assert.equal(ignored, ".thirdspace/config/remote-event-sources.local.yaml");
 });
 
 test("canonical schemas expose every supported type and status", () => {
