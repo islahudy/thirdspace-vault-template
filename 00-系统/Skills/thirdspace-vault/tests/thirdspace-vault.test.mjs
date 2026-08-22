@@ -186,6 +186,7 @@ test("Daily Agent reporting config and generated report inputs stay local", () =
 test("Phase 3 distribution publishes remote reporting assets and intent routing", () => {
   for (const relative of [
     "00-系统/运行时/remote-events/README.md",
+    "00-系统/运行时/remote-events/INSTALL_FOR_AGENT.md",
     "00-系统/运行时/remote-events/git-post-commit.sh",
     "00-系统/运行时/remote-events/agent-exit-token.sh",
     "00-系统/运行时/remote-events/events.example.ndjson",

@@ -12,6 +12,8 @@ status: "active"
 
 # Standalone Remote Event Producer Kit
 
+若希望让服务器上的 Codex 或 Claude Code 根据自身版本完成配置，请把同目录的 `INSTALL_FOR_AGENT.md` 交给该 Agent，并要求它“参考说明安装”。该文件定义目标、不可变事件契约、安全边界和验收标准；具体 Hook 配置由执行 Agent 在检查当前版本后决定。
+
 This directory is a copy-only kit for producing append-only `git_commit` and session-level `token_usage` NDJSON on a remote server. It does not install itself, modify Git or Agent configuration, contact another machine, or require a ThirdSpace Vault. The server needs POSIX `sh` and Node.js; the Git producer also needs Git.
 
 The scripts record metadata and aggregate counters only. They never record diffs, file contents, conversations, commands, credentials, or environment dumps. `events.example.ndjson` contains one valid record of each type.
