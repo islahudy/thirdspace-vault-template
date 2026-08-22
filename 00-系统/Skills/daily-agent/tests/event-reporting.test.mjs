@@ -66,11 +66,19 @@ test("remote source config accepts the template subset and rejects unsafe or amb
     const unsafeHost = writeConfig(root, `version: "1.0"\nsources:\n  - source_id: "183"\n    ssh_host: "183;touch-pwned"\n    remote_path: "/nas/users/events.ndjson"\n    enabled: true\n`);
     assert.throws(() => loadRemoteSources(unsafeHost), /invalid ssh_host/);
 
+    const optionHost = writeConfig(root, `version: "1.0"\nsources:\n  - source_id: "183"\n    ssh_host: "-Eaudit.log"\n    remote_path: "/nas/users/events.ndjson"\n    enabled: true\n`);
+    assert.throws(() => loadRemoteSources(optionHost), /invalid ssh_host/);
+
     const unsafePath = writeConfig(root, `version: "1.0"\nsources:\n  - source_id: "183"\n    ssh_host: "183"\n    remote_path: "relative/events.ndjson"\n    enabled: true\n`);
     assert.throws(() => loadRemoteSources(unsafePath), /invalid remote_path/);
 
     const duplicate = writeConfig(root, `version: "1.0"\nsources:\n  - source_id: "183"\n    ssh_host: "183"\n    remote_path: "/nas/users/events.ndjson"\n    enabled: true\n  - source_id: "183"\n    ssh_host: "backup"\n    remote_path: "/nas/users/backup.ndjson"\n    enabled: true\n`);
     assert.throws(() => loadRemoteSources(duplicate), /duplicate source_id/);
+
+    for (const sourceId of [".", ".."]) {
+      const unsafeSourceId = writeConfig(root, `version: "1.0"\nsources:\n  - source_id: "${sourceId}"\n    ssh_host: "183"\n    remote_path: "/nas/users/events.ndjson"\n    enabled: true\n`);
+      assert.throws(() => loadRemoteSources(unsafeSourceId), /invalid source_id/);
+    }
 
     const unknown = writeConfig(root, `version: "1.0"\nsecret: "no"\nsources: []\n`);
     assert.throws(() => loadRemoteSources(unknown), /unknown top-level key/);
@@ -137,6 +145,32 @@ test("remote synchronization preserves the prior snapshot when fetched NDJSON is
   }
 });
 
+test("remote synchronization restores the prior snapshot when its state update fails", () => {
+  const root = temporaryVault();
+  try {
+    initializeAgentState(root);
+    const configPath = writeConfig(root, `version: "1.0"\nsources:\n  - source_id: "183"\n    ssh_host: "183"\n    remote_path: "/nas/users/events.ndjson"\n    enabled: true\n`);
+    const rawPath = path.join(root, ".thirdspace", "events", "remote", "183", "raw", "events.ndjson");
+    fs.mkdirSync(path.dirname(rawPath), { recursive: true });
+    fs.writeFileSync(rawPath, '{"previous":true}\n', "utf8");
+
+    const result = syncRemoteSources({ vaultRoot: root, now: "2026-08-22T09:00:00+08:00" }, {
+      configPath,
+      fetchSource: () => `${JSON.stringify(validCommit("183"))}\n`,
+      updateSourceState(_context, _sourceId, status) {
+        if (status === "succeeded") throw new Error("state unavailable");
+      },
+    });
+
+    assert.deepEqual(result.succeeded, []);
+    assert.deepEqual(result.failed.map((item) => item.source_id), ["183"]);
+    assert.equal(fs.readFileSync(rawPath, "utf8"), '{"previous":true}\n');
+    assert.equal(fs.existsSync(`${rawPath}.tmp-sync`), false);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("remote-sync CLI accepts an absolute config path and defaults missing config to the documented example", () => {
   const root = temporaryVault();
   try {
@@ -145,8 +179,9 @@ test("remote-sync CLI accepts an absolute config path and defaults missing confi
     fs.writeFileSync(path.join(root, ".thirdspace", "workspace-index.yaml"), 'vault_root: "."\n', "utf8");
     const configPath = writeConfig(root, `version: "1.0"\nsources: []\n`);
     assert.deepEqual(runCli(root, "remote-sync", "--vault", root, "--config", configPath), { succeeded: [], failed: [] });
+    fs.unlinkSync(configPath);
     assert.throws(
-      () => runCli(root, "remote-sync", "--vault", root, "--config", path.join(root, "missing.yaml")),
+      () => runCli(root, "remote-sync", "--vault", root),
       /remote-event-sources\.example\.yaml/,
     );
   } finally {

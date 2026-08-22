@@ -2,7 +2,7 @@ import fs from "node:fs";
 
 const TOP_LEVEL_KEYS = new Set(["version", "timezone", "sources"]);
 const SOURCE_KEYS = new Set(["source_id", "ssh_host", "remote_path", "enabled"]);
-const SSH_HOST_PATTERN = /^[A-Za-z0-9._-]+$/;
+const SSH_HOST_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 const REMOTE_PATH_PATTERN = /^\/[A-Za-z0-9._/-]+$/;
 const SOURCE_ID_PATTERN = /^[A-Za-z0-9._-]+$/;
 
@@ -77,7 +77,7 @@ export function validateRemoteSource(source) {
   for (const key of SOURCE_KEYS) {
     if (!Object.hasOwn(source, key)) throw new Error(`remote source field required: ${key}`);
   }
-  if (typeof source.source_id !== "string" || !SOURCE_ID_PATTERN.test(source.source_id)) throw new Error(`invalid source_id: ${source.source_id}`);
+  if (typeof source.source_id !== "string" || !SOURCE_ID_PATTERN.test(source.source_id) || source.source_id === "." || source.source_id === "..") throw new Error(`invalid source_id: ${source.source_id}`);
   if (typeof source.ssh_host !== "string" || !SSH_HOST_PATTERN.test(source.ssh_host)) throw new Error(`invalid ssh_host: ${source.ssh_host}`);
   if (typeof source.remote_path !== "string" || !REMOTE_PATH_PATTERN.test(source.remote_path)) throw new Error(`invalid remote_path: ${source.remote_path}`);
   if (typeof source.enabled !== "boolean") throw new Error(`invalid enabled: ${source.enabled}`);

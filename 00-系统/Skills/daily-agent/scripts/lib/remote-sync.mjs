@@ -41,6 +41,20 @@ function replaceRawSnapshot(rawPath, content) {
   }
 }
 
+function restoreRawSnapshot(rawPath, previousContent) {
+  const temporary = `${rawPath}.tmp-sync`;
+  try {
+    if (previousContent === null) {
+      if (fs.existsSync(rawPath)) fs.unlinkSync(rawPath);
+      return;
+    }
+    fs.writeFileSync(temporary, previousContent, "utf8");
+    fs.renameSync(temporary, rawPath);
+  } finally {
+    if (fs.existsSync(temporary)) fs.unlinkSync(temporary);
+  }
+}
+
 function updateSyncState(context, sourceId, status, error) {
   const statePath = path.join(context.vaultRoot, ".thirdspace", "data", "daily-agent", "agent-state.json");
   const current = readState(statePath, "pending_confirmations");
@@ -64,7 +78,7 @@ export function fetchRemoteSource(source) {
   });
 }
 
-export function syncRemoteSources(context, { configPath, fetchSource = fetchRemoteSource }) {
+export function syncRemoteSources(context, { configPath, fetchSource = fetchRemoteSource, updateSourceState = updateSyncState }) {
   if (!context?.vaultRoot || !context.now) throw new Error("vaultRoot and now are required");
   const sources = loadRemoteSources(resolveConfigPath(context.vaultRoot, configPath)).sources;
   const succeeded = [];
@@ -75,13 +89,19 @@ export function syncRemoteSources(context, { configPath, fetchSource = fetchRemo
       const content = fetchSource(source);
       if (typeof content !== "string") throw new Error("remote source returned non-text content");
       const rawPath = rawSnapshotPath(context.vaultRoot, source.source_id);
+      const previousContent = fs.existsSync(rawPath) ? fs.readFileSync(rawPath, "utf8") : null;
       replaceRawSnapshot(rawPath, content);
-      updateSyncState(context, source.source_id, "succeeded", null);
+      try {
+        updateSourceState(context, source.source_id, "succeeded", null);
+      } catch (error) {
+        restoreRawSnapshot(rawPath, previousContent);
+        throw error;
+      }
       succeeded.push({ source_id: source.source_id, raw_path: rawPath });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       try {
-        updateSyncState(context, source.source_id, "failed", message);
+        updateSourceState(context, source.source_id, "failed", message);
       } catch {
         // Keep the source failure independent of a damaged or concurrently changed state file.
       }
