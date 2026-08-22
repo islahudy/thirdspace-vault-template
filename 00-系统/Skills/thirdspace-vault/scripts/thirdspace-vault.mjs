@@ -1628,6 +1628,7 @@ function auditSubsystems(vaultRoot, args = {}) {
     ".thirdspace/schema/frontmatter.yaml",
     ".thirdspace/schema/event-capture.yaml",
     ".thirdspace/schema/workspace-tools.yaml",
+    ".thirdspace/schema/daily-agent.yaml",
   ];
 
   for (const relative of schemaFiles) {
@@ -1711,6 +1712,54 @@ function auditSubsystems(vaultRoot, args = {}) {
     } catch (error) {
       addSemanticError("lifeos", "05-资源/人物档案/people.json", `LifeOS store invalid JSON: ${error.message}`);
     }
+  }
+
+  const dailySchemaPath = path.join(vaultRoot, ".thirdspace/schema/daily-agent.yaml");
+  const dailyStateRoot = path.join(vaultRoot, ".thirdspace/data/daily-agent");
+  if (fs.existsSync(dailySchemaPath)) {
+    const dailySchema = fs.readFileSync(dailySchemaPath, "utf8");
+    const taskStatuses = new Set(yamlInlineValues(dailySchema, "status_values").slice(0, 5));
+    const taskPriorities = new Set(yamlInlineValues(dailySchema, "priority_values"));
+    const readingKinds = new Set(yamlInlineValues(dailySchema, "kind_values"));
+    const allStatusLists = [...dailySchema.matchAll(/^\s+status_values:\s*\[([^\]]*)\]/gm)]
+      .map((match) => match[1].split(",").map((value) => value.trim()));
+    const readingStatuses = new Set(allStatusLists[1] || []);
+    const stateNames = ["tasks.json", "reading-queue.json", "project-index.json", "agent-state.json"];
+    const states = {};
+    for (const name of stateNames) {
+      const full = path.join(dailyStateRoot, name);
+      const relative = path.relative(vaultRoot, full);
+      if (!fs.existsSync(full)) {
+        addSemanticError("daily-agent", relative, "daily-agent state missing");
+        continue;
+      }
+      try {
+        const value = JSON.parse(fs.readFileSync(full, "utf8"));
+        if (value.version !== "1.0") addSemanticError("daily-agent", relative, `unsupported version: ${value.version ?? "missing"}`);
+        if (!Number.isInteger(value.revision) || value.revision < 0) addSemanticError("daily-agent", relative, "invalid revision");
+        states[name] = value;
+      } catch (error) {
+        addSemanticError("daily-agent", relative, `invalid JSON: ${error.message}`);
+      }
+    }
+    const projects = Array.isArray(states["project-index.json"]?.projects) ? states["project-index.json"].projects : [];
+    const projectIds = new Set(projects.map((project) => project.id));
+    const tasks = Array.isArray(states["tasks.json"]?.tasks) ? states["tasks.json"].tasks : [];
+    const seenTaskIds = new Set();
+    for (const task of tasks) {
+      if (seenTaskIds.has(task.id)) addSemanticError("daily-agent", ".thirdspace/data/daily-agent/tasks.json", `duplicate task id: ${task.id}`);
+      seenTaskIds.add(task.id);
+      if (!taskStatuses.has(task.status)) addSemanticError("daily-agent", ".thirdspace/data/daily-agent/tasks.json", `invalid task status: ${task.status}`);
+      if (!taskPriorities.has(task.priority)) addSemanticError("daily-agent", ".thirdspace/data/daily-agent/tasks.json", `invalid task priority: ${task.priority}`);
+      if (task.project_id && !projectIds.has(task.project_id)) addSemanticError("daily-agent", ".thirdspace/data/daily-agent/tasks.json", `unresolved project_id: ${task.project_id}`);
+    }
+    const reading = states["reading-queue.json"];
+    for (const item of Array.isArray(reading?.items) ? reading.items : []) {
+      if (!item.source_path) addSemanticError("daily-agent", ".thirdspace/data/daily-agent/reading-queue.json", `reading source_path required: ${item.id ?? "missing-id"}`);
+      if (!readingKinds.has(item.kind)) addSemanticError("daily-agent", ".thirdspace/data/daily-agent/reading-queue.json", `invalid reading kind: ${item.kind}`);
+      if (!readingStatuses.has(item.status)) addSemanticError("daily-agent", ".thirdspace/data/daily-agent/reading-queue.json", `invalid reading status: ${item.status}`);
+    }
+    if (stateNames.every((name) => states[name])) checks.push({ severity: "ok", subsystem: "daily-agent", path: ".thirdspace/data/daily-agent", message: "daily-agent state contracts checked" });
   }
 
   for (const [id, contract] of Object.entries(SUBSYSTEM_CONTRACTS)) {

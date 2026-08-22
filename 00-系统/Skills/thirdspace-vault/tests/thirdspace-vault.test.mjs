@@ -201,3 +201,51 @@ test("semantic audit validates project metadata and LifeOS synchronization", () 
     fs.rmSync(target, { recursive: true, force: true });
   }
 });
+
+test("semantic audit rejects invalid daily-agent state contracts", () => {
+  const cases = [
+    {
+      file: "tasks.json",
+      content: "{broken\n",
+      message: "invalid JSON",
+    },
+    {
+      file: "reading-queue.json",
+      value: { version: "2.0", revision: 0, updated_at: null, items: [], candidates: [], dismissed_source_paths: [] },
+      message: "unsupported version",
+    },
+    {
+      file: "tasks.json",
+      value: { version: "1.0", revision: 0, updated_at: null, tasks: [{ id: "task_1", title: "x", status: "active", priority: "urgent", tags: [], project_id: null }] },
+      message: "invalid task priority",
+    },
+    {
+      file: "tasks.json",
+      value: { version: "1.0", revision: 0, updated_at: null, tasks: [{ id: "task_1", title: "x", status: "active", priority: "normal", tags: [], project_id: null }, { id: "task_1", title: "y", status: "active", priority: "normal", tags: [], project_id: null }] },
+      message: "duplicate task id",
+    },
+    {
+      file: "reading-queue.json",
+      value: { version: "1.0", revision: 0, updated_at: null, items: [{ id: "reading_1", kind: "paper", title: "x", status: "pending", tags: [] }], candidates: [], dismissed_source_paths: [] },
+      message: "reading source_path required",
+    },
+    {
+      file: "tasks.json",
+      value: { version: "1.0", revision: 0, updated_at: null, tasks: [{ id: "task_1", title: "x", status: "active", priority: "normal", tags: [], project_id: "project_missing" }] },
+      message: "unresolved project_id",
+    },
+  ];
+  for (const fixture of cases) {
+    const target = fs.mkdtempSync(path.join(os.tmpdir(), "thirdspace-daily-audit-"));
+    try {
+      run("init", "--vault", target);
+      const file = path.join(target, ".thirdspace", "data", "daily-agent", fixture.file);
+      fs.writeFileSync(file, fixture.content || `${JSON.stringify(fixture.value, null, 2)}\n`);
+      const audit = run("audit-subsystems", "--vault", target);
+      assert.equal(audit.checks.some((check) => check.path.endsWith(fixture.file) && check.message.includes(fixture.message)), true, fixture.message);
+      assert.equal(audit.summary.error > 0, true);
+    } finally {
+      fs.rmSync(target, { recursive: true, force: true });
+    }
+  }
+});

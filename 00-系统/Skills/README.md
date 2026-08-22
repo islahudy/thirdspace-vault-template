@@ -52,6 +52,7 @@ thirdspace-vault
 | 知识卡片、学习文档 | `knowledge` |
 | 反思与决策复盘 | `reflect` |
 | 周报、月报与周期复盘 | `review` |
+| 每日开场、遗留事项、DDL、今日重点与阅读积压 | `daily-agent` |
 
 ## Prompt 与旧 CLI 规则
 

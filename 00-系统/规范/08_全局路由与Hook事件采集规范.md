@@ -4,7 +4,7 @@ type: "spec"
 topic: "system"
 workspace: "00-系统"
 created: "2026-05-26 17:42:21"
-modified: "2026-08-21 14:55:00"
+modified: "2026-08-22 00:00:00"
 tags: ["system", "spec", "active"]
 source: "manual"
 status: "active"
@@ -76,7 +76,7 @@ status: "active"
 
 ```markdown
 ## 今日重点
-## 今日Todo
+## 今日计划快照
 ## Git 提交
 ## 重点记录
 ## 关键决策
@@ -85,6 +85,23 @@ status: "active"
 ```
 
 定时任务每天只需要调用 `ensure-worklog`，存在则不重复创建。
+
+完整任务状态保存在 `.thirdspace/data/daily-agent/tasks.json`。工作日志中的今日计划只是一份历史快照，不作为任务事实源，也不从日志反向同步任务状态。
+
+## 日常管理事件
+
+Pi 日常管理 Agent 第一阶段追加以下事件：
+
+- `task_created`
+- `task_status_changed`
+- `daily_plan_created`
+- `reading_added`
+- `reading_processed`
+- `reading_candidate_created`
+- `reading_candidate_rejected`
+- `project_registered`
+
+事件必须包含 `schema_version`、`event_id`、`timestamp`、`event_type`、`source_id` 和 `subject_id`。本机事件追加到 `.thirdspace/events/local/YYYYMMDD.ndjson`；历史事件不可重写，修正必须通过新事件表达。
 
 定时任务规格必须在 vault 内留存：
 
