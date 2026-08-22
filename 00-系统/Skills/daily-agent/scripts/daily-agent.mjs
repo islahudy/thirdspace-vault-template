@@ -4,6 +4,7 @@ import path from "node:path";
 
 import { completeOpening, prepareOpening } from "./lib/opening.mjs";
 import { confirmReadingCandidate, scanReadingInbox } from "./lib/reading.mjs";
+import { syncRemoteSources } from "./lib/remote-sync.mjs";
 import { createTask, registerProject, transitionTask } from "./lib/tasks.mjs";
 
 function parseArgs(argv) {
@@ -67,6 +68,14 @@ function dispatch(args) {
   if (command === "reading-scan") return scanReadingInbox(context);
   if (command === "reading-confirm") return { item: confirmReadingCandidate(context, args.id, args.decision) };
   if (command === "opening-complete") return completeOpening(context, { focusTaskIds: csv(args.focus) });
+  if (command === "remote-sync") {
+    const configPath = args.config || ".thirdspace/config/remote-event-sources.local.yaml";
+    const resolvedConfig = path.isAbsolute(configPath) ? configPath : path.join(context.vaultRoot, configPath);
+    if (!fs.existsSync(resolvedConfig)) {
+      throw new Error(`remote source config not found: ${resolvedConfig}; copy .thirdspace/schema/remote-event-sources.example.yaml to .thirdspace/config/remote-event-sources.local.yaml`);
+    }
+    return syncRemoteSources(context, { configPath: resolvedConfig });
+  }
   throw new Error(`unknown command: ${command || "missing"}`);
 }
 
