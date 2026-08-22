@@ -1,5 +1,6 @@
 import { ItemView, Modal, Notice, Plugin, normalizePath } from "obsidian";
 import { parseState, prepareMutation } from "./state.mjs";
+import { filterTasks, groupTasks } from "./models.mjs";
 
 const VIEW_TYPE = "thirdspace-dashboard";
 const WORKSPACES = ["00-系统", "01-收件箱", "02-日记", "03-知识", "04-项目", "05-资源", "06-输出", "99-归档"];
@@ -56,6 +57,69 @@ function relativeAge(milliseconds) {
   if (days < 7) return `${days}d`;
   if (days < 30) return `${Math.floor(days / 7)}w`;
   return `${Math.floor(days / 30)}mo`;
+}
+
+function eventId(type, subjectId, timestamp = new Date().toISOString()) {
+  return `${type}:${subjectId}:${timestamp.replace(/[-:.]/g, "")}`;
+}
+
+class TaskModal extends Modal {
+  constructor(app, { task = null, projects = [], onSubmit }) {
+    super(app);
+    this.task = task;
+    this.projects = projects;
+    this.onSubmit = onSubmit;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.addClass("ts-modal");
+    contentEl.createEl("h3", { text: this.task ? "编辑事项" : "新增事项" });
+    const field = (label, type, value = "") => {
+      const row = contentEl.createDiv({ cls: "ts-form-row" });
+      row.createEl("label", { text: label });
+      const input = row.createEl("input", { type, value: value || "", cls: "ts-modal-input" });
+      return input;
+    };
+    const title = field("标题", "text", this.task?.title);
+    const due = field("DDL", "date", this.task?.due);
+    const tags = field("Tags", "text", (this.task?.tags || []).join(","));
+    const select = (label, options, value) => {
+      const row = contentEl.createDiv({ cls: "ts-form-row" });
+      row.createEl("label", { text: label });
+      const element = row.createEl("select", { cls: "ts-modal-select" });
+      for (const [optionValue, text] of options) element.createEl("option", { value: optionValue, text });
+      element.value = value || options[0][0];
+      return element;
+    };
+    const priority = select("优先级", [["critical", "Critical"], ["high", "High"], ["normal", "Normal"], ["low", "Low"]], this.task?.priority || "normal");
+    const status = select("状态", [["active", "Active"], ["waiting", "Waiting"], ["completed", "Completed"], ["cancelled", "Cancelled"]], this.task?.status || "active");
+    const project = select("项目", [["", "无项目"], ...this.projects.map((item) => [item.id, item.name])], this.task?.project_id || "");
+    const buttons = contentEl.createDiv({ cls: "ts-modal-row" });
+    buttons.createEl("button", { text: "保存", cls: "mod-cta" }).addEventListener("click", async () => {
+      if (!title.value.trim()) return new Notice("标题不能为空");
+      await this.onSubmit({
+        title: title.value.trim(), priority: priority.value, status: status.value,
+        due: due.value || null, tags: [...new Set(tags.value.split(",").map((value) => value.trim()).filter(Boolean))],
+        project_id: project.value || null,
+      });
+      this.close();
+    });
+    buttons.createEl("button", { text: "取消" }).addEventListener("click", () => this.close());
+    title.focus();
+  }
+  onClose() { this.contentEl.empty(); }
+}
+
+class ConfirmModal extends Modal {
+  constructor(app, message, onConfirm) { super(app); this.message = message; this.onConfirm = onConfirm; }
+  onOpen() {
+    this.contentEl.createEl("h3", { text: "需要确认" });
+    this.contentEl.createEl("p", { text: this.message });
+    const buttons = this.contentEl.createDiv({ cls: "ts-modal-row" });
+    buttons.createEl("button", { text: "确认取消事项", cls: "mod-warning" }).addEventListener("click", async () => { await this.onConfirm(); this.close(); });
+    buttons.createEl("button", { text: "返回" }).addEventListener("click", () => this.close());
+  }
+  onClose() { this.contentEl.empty(); }
 }
 
 class QuickNoteModal extends Modal {
@@ -122,7 +186,7 @@ class ThirdSpaceView extends ItemView {
     const left = main.createDiv({ cls: "ts-left" });
     const right = main.createDiv({ cls: "ts-right" });
     this.renderWorkspaces(left, now);
-    this.renderTaskPlaceholder(left);
+    await this.renderTasks(left);
     this.renderToday(right);
     this.renderQuick(right);
     this.renderRecent(right, files);
@@ -153,10 +217,104 @@ class ThirdSpaceView extends ItemView {
       row.addEventListener("click", () => this.openMostRecent(workspace));
     }
   }
-  renderTaskPlaceholder(container) {
+  async renderTasks(container) {
     const card = container.createDiv({ cls: "ts-card ts-task-card" });
-    card.createDiv({ cls: "ts-card-label", text: "TASKS" });
-    card.createDiv({ cls: "ts-empty", text: "Daily Agent task store loading…" });
+    const head = card.createDiv({ cls: "ts-card-head" });
+    head.createDiv({ cls: "ts-card-label", text: "TASKS" });
+    let taskState;
+    let projects = [];
+    try {
+      [taskState, projects] = await Promise.all([
+        this.store.read("tasks.json", "tasks"),
+        this.store.read("project-index.json", "projects").then((state) => state.projects),
+      ]);
+    } catch (error) {
+      card.createDiv({ cls: "ts-warning", text: `Task store unavailable: ${error.message}` });
+      return;
+    }
+    head.createEl("button", { text: "+ 新增", cls: "ts-small-btn" }).addEventListener("click", () => this.openTaskModal(null, projects));
+    const filters = card.createDiv({ cls: "ts-task-filters" });
+    const tagFilter = filters.createEl("select");
+    tagFilter.createEl("option", { value: "", text: "全部 tags" });
+    const allTags = [...new Set(taskState.tasks.flatMap((task) => task.tags || []))].sort();
+    for (const tag of allTags) tagFilter.createEl("option", { value: tag, text: tag });
+    const projectFilter = filters.createEl("select");
+    projectFilter.createEl("option", { value: "", text: "全部项目" });
+    for (const project of projects) projectFilter.createEl("option", { value: project.id, text: project.name });
+    const completedLabel = filters.createEl("label", { cls: "ts-check-label" });
+    const completedToggle = completedLabel.createEl("input", { type: "checkbox" });
+    completedLabel.appendText(" 显示已完成");
+    const list = card.createDiv({ cls: "ts-task-groups" });
+    const redraw = () => {
+      list.empty();
+      const tasks = filterTasks(taskState.tasks, { tag: tagFilter.value, projectId: projectFilter.value, showCompleted: completedToggle.checked });
+      const groups = groupTasks(tasks, new Intl.DateTimeFormat("sv-SE").format(new Date()));
+      const labels = { overdue: "逾期", today: "今天", upcoming: "即将到期", waiting: "等待", active: "进行中", completed: "已完成/取消" };
+      for (const [key, values] of Object.entries(groups)) {
+        if (!values.length) continue;
+        const section = list.createDiv({ cls: `ts-task-group ts-task-group--${key}` });
+        section.createDiv({ cls: "ts-task-group-title", text: `${labels[key]} · ${values.length}` });
+        for (const task of values) this.renderTaskRow(section, task, projects);
+      }
+      if (!tasks.length) list.createDiv({ cls: "ts-empty", text: "没有匹配的事项" });
+    };
+    tagFilter.addEventListener("change", redraw);
+    projectFilter.addEventListener("change", redraw);
+    completedToggle.addEventListener("change", redraw);
+    redraw();
+  }
+  renderTaskRow(container, task, projects) {
+    const row = container.createDiv({ cls: `ts-task-row ts-priority-${task.priority}` });
+    const check = row.createEl("button", { cls: "ts-task-check", text: task.status === "completed" ? "☑" : "☐" });
+    check.addEventListener("click", () => this.updateTask(task, { status: task.status === "completed" ? "active" : "completed" }, "task_status_changed"));
+    const body = row.createDiv({ cls: "ts-task-body" });
+    body.createDiv({ cls: "ts-task-title", text: task.title });
+    const meta = body.createDiv({ cls: "ts-task-meta" });
+    meta.createSpan({ cls: `ts-chip ts-chip-${task.priority}`, text: task.priority });
+    if (task.due) meta.createSpan({ cls: "ts-chip", text: `DDL ${task.due}` });
+    const project = projects.find((item) => item.id === task.project_id);
+    if (project) meta.createSpan({ cls: "ts-chip", text: project.name });
+    for (const tag of task.tags || []) meta.createSpan({ cls: "ts-chip", text: `#${tag}` });
+    row.createEl("button", { cls: "ts-task-edit", text: "编辑" }).addEventListener("click", () => this.openTaskModal(task, projects));
+  }
+  openTaskModal(task, projects) {
+    new TaskModal(this.app, { task, projects, onSubmit: async (input) => {
+      if (input.status === "cancelled" && task?.status !== "cancelled") {
+        return new ConfirmModal(this.app, `确认取消“${input.title}”？历史记录会保留。`, () => this.saveTask(task, input)).open();
+      }
+      await this.saveTask(task, input);
+    } }).open();
+  }
+  async saveTask(task, input) {
+    const now = new Date().toISOString();
+    const id = task?.id || `task_${now.replace(/[-:.TZ]/g, "").slice(0, 14)}_${crypto.randomUUID().replaceAll("-", "").slice(0, 8)}`;
+    const nextTask = task ? {
+      ...task, ...input, updated_at: now,
+      completed_at: input.status === "completed" ? task.completed_at || now : task.completed_at,
+    } : {
+      id, ...input, review_after: null, created_at: now, updated_at: now,
+      completed_at: input.status === "completed" ? now : null, source: "thirdspace-dashboard",
+    };
+    await this.store.mutate("tasks.json", "tasks", (state) => ({
+      ...state,
+      tasks: task ? state.tasks.map((item) => item.id === task.id ? nextTask : item) : [...state.tasks, nextTask],
+    }), {
+      event_id: eventId(task ? (task.status === input.status ? "task_updated" : "task_status_changed") : "task_created", id, now),
+      event_type: task ? (task.status === input.status ? "task_updated" : "task_status_changed") : "task_created",
+      subject_id: id,
+    });
+    await this.render();
+  }
+  async updateTask(task, patch, type) {
+    const now = new Date().toISOString();
+    await this.store.mutate("tasks.json", "tasks", (state) => ({
+      ...state,
+      tasks: state.tasks.map((item) => item.id === task.id ? {
+        ...item, ...patch, updated_at: now,
+        completed_at: patch.status === "completed" ? now : item.completed_at,
+      } : item),
+    }), { event_id: eventId(type, task.id, now), event_type: type, subject_id: task.id });
+    await this.render();
   }
   renderToday(container) {
     const card = container.createDiv({ cls: "ts-card" });
