@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { execFileSync } from "node:child_process";
 
 import { readState, mutateState } from "../scripts/lib/store.mjs";
 import { appendEvent, makeEventId } from "../scripts/lib/events.mjs";
@@ -40,6 +41,15 @@ function readEvents(root) {
   const eventRoot = path.join(root, ".thirdspace", "events", "local");
   if (!fs.existsSync(eventRoot)) return [];
   return fs.readdirSync(eventRoot).sort().flatMap((name) => fs.readFileSync(path.join(eventRoot, name), "utf8").trim().split("\n").filter(Boolean).map(JSON.parse));
+}
+
+function runCli(root, ...args) {
+  const cli = path.resolve(path.dirname(decodeURIComponent(new URL(import.meta.url).pathname)), "../scripts/daily-agent.mjs");
+  return JSON.parse(execFileSync(process.execPath, [cli, ...args], {
+    encoding: "utf8",
+    env: { ...process.env, THIRDSPACE_NOW: "2026-08-22T09:00:00+08:00" },
+    cwd: root,
+  }));
 }
 
 test("state store validates JSON and supported version", () => {
@@ -215,6 +225,33 @@ test("daily opening prepares prompts and completes one idempotent plan snapshot"
     const repeated = fs.readFileSync(completed.worklogPath, "utf8");
     assert.equal((repeated.match(/^## 今日重点$/gm) || []).length, 1);
     assert.equal((repeated.match(/^## 今日计划快照$/gm) || []).length, 1);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("CLI exposes opening, project, task, reading, and completion commands", () => {
+  const root = temporaryVault();
+  try {
+    initializeDailyState(root);
+    fs.writeFileSync(path.join(root, ".thirdspace", "workspace-index.yaml"), 'vault_root: "."\n');
+    const projectPath = path.join(root, "04-项目", "研究验证", "20260822_研究项目");
+    fs.mkdirSync(projectPath, { recursive: true });
+    const inbox = path.join(root, "01-收件箱", "网页剪藏");
+    fs.mkdirSync(inbox, { recursive: true });
+    fs.writeFileSync(path.join(inbox, "20260822_论文.md"), '---\ntitle: "论文"\ntags: [paper]\nstatus: "draft"\nurl: "https://example.com/paper"\n---\n');
+    const opening = runCli(root, "opening", "--vault", root);
+    assert.equal(opening.required, true);
+    assert.equal(opening.reading.added.length, 1);
+    const project = runCli(root, "project-register", "--vault", root, "--id", "project_research", "--name", "研究项目", "--path", "04-项目/研究验证/20260822_研究项目");
+    assert.equal(project.project.id, "project_research");
+    const created = runCli(root, "task-add", "--vault", root, "--title", "准备组会", "--priority", "high", "--tags", "科研,组会", "--project-id", "project_research");
+    assert.equal(created.task.title, "准备组会");
+    assert.equal(created.task.project_id, "project_research");
+    assert.equal(runCli(root, "reading-scan", "--vault", root).added.length, 0);
+    const completed = runCli(root, "opening-complete", "--vault", root, "--focus", created.task.id);
+    assert.equal(completed.state.last_daily_opening, "2026-08-22");
+    assert.equal(runCli(root, "opening", "--vault", root).required, false);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
