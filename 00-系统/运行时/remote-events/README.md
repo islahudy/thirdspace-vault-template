@@ -29,7 +29,7 @@ install -d -m 700 "$HOME/.local/lib/thirdspace-remote-events"
 install -m 700 git-post-commit.sh agent-exit-token.sh "$HOME/.local/lib/thirdspace-remote-events/"
 ```
 
-Both producers require the event file's immediate parent to already be mode `0700`, or create a missing parent with that mode. They create or repair the event file to mode `0600`, reject a symlink event file, and reject a parent that is a symlink. A path directly below the filesystem root is rejected; use a dedicated private directory.
+Both producers require the event file's immediate parent to already be mode `0700`, or create a missing parent with that mode. They create or repair a regular event file to mode `0600`, reject symlink and non-regular destinations, and reject a parent that is a symlink. They verify the opened descriptor with `fstat` before changing permissions or writing. A path directly below the filesystem root is rejected; use a dedicated private directory.
 
 Verify permissions with either GNU or BSD/macOS `stat`:
 
@@ -42,7 +42,7 @@ Expected modes are `700` for the directory and `600` for the file.
 
 ## Git post-commit hook
 
-Set a safe source ID containing only letters, digits, `.`, `_`, or `-`. The producer reads the current commit with `git log -1 --format=%s` and `git show --numstat --format=`. It emits counts, the commit SHA, branch, repository name, and subject; it does not emit filenames or diff content.
+Set a safe source ID containing only letters, digits, `.`, `_`, or `-`; the complete IDs `.` and `..` are forbidden. The producer reads the current commit with `git log -1 --format=%s` and `git show --numstat --format=`. It emits counts, the commit SHA, branch, repository name, and subject; it does not emit filenames or diff content.
 
 Create a repository-local `.git/hooks/post-commit` wrapper yourself:
 
@@ -88,27 +88,34 @@ export THIRDSPACE_TOTAL_TOKENS="$AGENT_TOTAL_TOKENS"
 exec "$HOME/.local/lib/thirdspace-remote-events/agent-exit-token.sh"
 ```
 
-Alternatively, pass one JSON object as the first argument. Canonical counters may be top-level or under `metrics` or `usage`; explicitly set environment variables take precedence.
+For a vendor's full final-session JSON, use `--stdin`. The producer extracts only the canonical identity, model, repository, and aggregate-counter fields listed above; unknown fields such as transcripts, prompts, tool calls, and commands are ignored. Stdin keeps the payload out of the process command line exposed by tools such as `ps` and `/proc/*/cmdline`. Canonical counters may be top-level or under `metrics` or `usage`; explicitly set environment variables take precedence.
 
 ```sh
-THIRDSPACE_EVENT_FILE=/nas/users/xxxiang/person/events.ndjson \
-  "$HOME/.local/lib/thirdspace-remote-events/agent-exit-token.sh" \
-  '{"source_id":"183","agent":"claude","session_id":"stable-session-id","model":"example-model","metrics":{"input_tokens":1000,"output_tokens":300,"total_tokens":1300}}'
+printf '%s' "$payload" | \
+  THIRDSPACE_EVENT_FILE=/nas/users/xxxiang/person/events.ndjson \
+  THIRDSPACE_SOURCE_ID=183 \
+  THIRDSPACE_AGENT=claude-code \
+  "$HOME/.local/lib/thirdspace-remote-events/agent-exit-token.sh" --stdin
 ```
+
+One JSON argument remains available only for an already constructed canonical allowlisted object that contains no transcript, prompt, tool-call, command, credential, or file content. Arguments are normally visible to other processes, so never put the vendor's full session payload there.
 
 Codex, Claude Code, and Pi hook configuration formats vary by version. Configure each product's session/Exit hook to call one of the wrappers above after mapping its final session JSON or environment variables to these canonical fields. Do not pass transcripts, prompts, command logs, tool input, or file content. Test the wrapper directly before enabling it in an Agent.
 
-The command portion of three generic Exit wrappers differs only by the explicit Agent label; in each case `"$payload"` is the final-session JSON supplied by that Agent's hook runner:
+The command portion of three generic Exit wrappers differs only by the explicit Agent label; in each case `"$payload"` is the final-session JSON supplied by that Agent's hook runner and is piped through stdin rather than included in argv:
 
 ```sh
 # Codex Exit wrapper
-THIRDSPACE_AGENT=codex exec "$HOME/.local/lib/thirdspace-remote-events/agent-exit-token.sh" "$payload"
+printf '%s' "$payload" | THIRDSPACE_AGENT=codex \
+  "$HOME/.local/lib/thirdspace-remote-events/agent-exit-token.sh" --stdin
 
 # Claude Code Exit wrapper
-THIRDSPACE_AGENT=claude-code exec "$HOME/.local/lib/thirdspace-remote-events/agent-exit-token.sh" "$payload"
+printf '%s' "$payload" | THIRDSPACE_AGENT=claude-code \
+  "$HOME/.local/lib/thirdspace-remote-events/agent-exit-token.sh" --stdin
 
 # Pi Exit wrapper
-THIRDSPACE_AGENT=pi exec "$HOME/.local/lib/thirdspace-remote-events/agent-exit-token.sh" "$payload"
+printf '%s' "$payload" | THIRDSPACE_AGENT=pi \
+  "$HOME/.local/lib/thirdspace-remote-events/agent-exit-token.sh" --stdin
 ```
 
 Each wrapper must also export the absolute `THIRDSPACE_EVENT_FILE` and its `THIRDSPACE_SOURCE_ID`. The JSON must contain `session_id`; reusing a process ID or generating a new ID during Exit retries defeats deduplication.
@@ -125,7 +132,8 @@ The scripts are append-only and never rewrite, truncate, rotate, or upload the e
 
 - `THIRDSPACE_EVENT_FILE must be an explicit absolute path`: export the full server path; relative paths and implicit Vault defaults are intentionally unsupported.
 - `parent must have mode 0700`: run `chmod 700` on the dedicated immediate parent, then retry. Do not point the producer at `/`, `/tmp`, or a shared directory.
-- `must match [A-Za-z0-9._-]+`: choose a source ID compatible with the local remote-source configuration.
+- `must match [A-Za-z0-9._-]+ and must not be . or ..`: choose a source ID compatible with the local remote-source configuration; complete dot path segments are unsafe.
+- `must be a regular file`: replace a FIFO, socket, device, or directory destination with a dedicated regular NDJSON file.
 - `must be a non-negative safe integer`: map the Agent's final numeric counter, or leave the field unset so it becomes `null`.
 - `unable to read Git metadata`: run the Git producer from inside the committed repository after `HEAD` exists.
 - Duplicate lines after a retried hook are expected. Keep the raw append-only file; stable IDs make normalization idempotent.

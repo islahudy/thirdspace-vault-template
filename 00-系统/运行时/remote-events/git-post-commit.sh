@@ -13,8 +13,8 @@ case "$event_file" in
 esac
 
 case "$source_id" in
-  ""|*[!A-Za-z0-9._-]*)
-    echo "THIRDSPACE_SOURCE_ID must match [A-Za-z0-9._-]+" >&2
+  ""|"."|".."|*[!A-Za-z0-9._-]*)
+    echo "THIRDSPACE_SOURCE_ID must match [A-Za-z0-9._-]+ and must not be . or .." >&2
     exit 64
     ;;
 esac
@@ -63,13 +63,25 @@ function preparePrivateFile(file) {
     fail("THIRDSPACE_EVENT_FILE parent must have mode 0700");
   }
 
-  if (fs.existsSync(file) && fs.lstatSync(file).isSymbolicLink()) {
-    fail("THIRDSPACE_EVENT_FILE must not be a symbolic link");
+  if (fs.existsSync(file)) {
+    const fileStat = fs.lstatSync(file);
+    if (fileStat.isSymbolicLink()) fail("THIRDSPACE_EVENT_FILE must not be a symbolic link");
+    if (!fileStat.isFile()) fail("THIRDSPACE_EVENT_FILE must be a regular file");
   }
   const flags = fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_APPEND
-    | (fs.constants.O_NOFOLLOW || 0);
+    | (fs.constants.O_NOFOLLOW || 0) | (fs.constants.O_NONBLOCK || 0);
   const fd = fs.openSync(file, flags, 0o600);
-  fs.fchmodSync(fd, 0o600);
+  const openedStat = fs.fstatSync(fd);
+  if (!openedStat.isFile()) {
+    fs.closeSync(fd);
+    fail("THIRDSPACE_EVENT_FILE must be a regular file");
+  }
+  try {
+    fs.fchmodSync(fd, 0o600);
+  } catch (error) {
+    fs.closeSync(fd);
+    throw error;
+  }
   return fd;
 }
 

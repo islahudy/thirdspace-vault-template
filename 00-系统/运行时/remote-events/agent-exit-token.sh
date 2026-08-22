@@ -11,7 +11,7 @@ case "$event_file" in
 esac
 
 if [ "$#" -gt 1 ]; then
-  echo "agent-exit-token.sh accepts at most one JSON argument" >&2
+  echo "agent-exit-token.sh accepts at most one JSON argument or --stdin" >&2
   exit 64
 fi
 
@@ -20,8 +20,14 @@ command -v node >/dev/null 2>&1 || {
   exit 69
 }
 
+input_mode=argument
 payload=${1:-}
-exec node - "$payload" <<'NODE'
+if [ "$payload" = "--stdin" ]; then
+  input_mode=stdin
+  payload=
+fi
+
+exec node - "$input_mode" "$payload" 3<&0 <<'NODE'
 const { execFileSync } = require("node:child_process");
 const crypto = require("node:crypto");
 const fs = require("node:fs");
@@ -44,6 +50,11 @@ function parsePayload(raw) {
     fail("Token hook argument must be one valid JSON object");
   }
   return value;
+}
+
+function readPayload() {
+  if (process.argv[2] === "stdin") return fs.readFileSync(3, "utf8");
+  return process.argv[3];
 }
 
 function inputValue(payload, envName, fieldName) {
@@ -97,13 +108,25 @@ function preparePrivateFile(file) {
     fail("THIRDSPACE_EVENT_FILE parent must have mode 0700");
   }
 
-  if (fs.existsSync(file) && fs.lstatSync(file).isSymbolicLink()) {
-    fail("THIRDSPACE_EVENT_FILE must not be a symbolic link");
+  if (fs.existsSync(file)) {
+    const fileStat = fs.lstatSync(file);
+    if (fileStat.isSymbolicLink()) fail("THIRDSPACE_EVENT_FILE must not be a symbolic link");
+    if (!fileStat.isFile()) fail("THIRDSPACE_EVENT_FILE must be a regular file");
   }
   const flags = fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_APPEND
-    | (fs.constants.O_NOFOLLOW || 0);
+    | (fs.constants.O_NOFOLLOW || 0) | (fs.constants.O_NONBLOCK || 0);
   const fd = fs.openSync(file, flags, 0o600);
-  fs.fchmodSync(fd, 0o600);
+  const openedStat = fs.fstatSync(fd);
+  if (!openedStat.isFile()) {
+    fs.closeSync(fd);
+    fail("THIRDSPACE_EVENT_FILE must be a regular file");
+  }
+  try {
+    fs.fchmodSync(fd, 0o600);
+  } catch (error) {
+    fs.closeSync(fd);
+    throw error;
+  }
   return fd;
 }
 
@@ -119,9 +142,11 @@ function appendOneLine(file, event) {
 }
 
 try {
-  const payload = parsePayload(process.argv[2]);
+  const payload = parsePayload(readPayload());
   const sourceId = requiredString(payload, "THIRDSPACE_SOURCE_ID", "source_id");
-  if (!/^[A-Za-z0-9._-]+$/.test(sourceId)) fail("THIRDSPACE_SOURCE_ID must match [A-Za-z0-9._-]+");
+  if (!/^[A-Za-z0-9._-]+$/.test(sourceId) || sourceId === "." || sourceId === "..") {
+    fail("THIRDSPACE_SOURCE_ID must match [A-Za-z0-9._-]+ and must not be . or ..");
+  }
   const agent = requiredString(payload, "THIRDSPACE_AGENT", "agent");
   const sessionId = requiredString(payload, "THIRDSPACE_SESSION_ID", "session_id");
   const modelInput = inputValue(payload, "THIRDSPACE_MODEL", "model");

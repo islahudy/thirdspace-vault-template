@@ -36,11 +36,13 @@ function cleanProducerEnv(overrides = {}) {
   return { ...env, ...overrides };
 }
 
-function runProducer(script, { cwd, env = {}, args = [] } = {}) {
+function runProducer(script, { cwd, env = {}, args = [], input, timeout = 5000 } = {}) {
   return spawnSync("/bin/sh", [script, ...args], {
     cwd,
     env: cleanProducerEnv(env),
     encoding: "utf8",
+    input,
+    timeout,
   });
 }
 
@@ -79,6 +81,195 @@ test("producers reject a missing or relative event file instead of choosing a Va
       assert.notEqual(relative.status, 0);
       assert.match(relative.stderr, /THIRDSPACE_EVENT_FILE.*absolute/i);
       assert.equal(fs.existsSync(path.join(root, "events.ndjson")), false);
+    }
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("producers reject dot path segments as source IDs before emitting events", () => {
+  const root = temporaryDirectory("remote-events-source-id-");
+  try {
+    execFileSync("git", ["init", "-q"], { cwd: root });
+    execFileSync("git", ["config", "user.name", "Remote Events Test"], { cwd: root });
+    execFileSync("git", ["config", "user.email", "remote-events@example.invalid"], { cwd: root });
+    fs.writeFileSync(path.join(root, "tracked.txt"), "content\n", "utf8");
+    execFileSync("git", ["add", "tracked.txt"], { cwd: root });
+    execFileSync("git", ["commit", "-q", "-m", "Initial commit"], { cwd: root });
+
+    for (const sourceId of [".", ".."]) {
+      for (const script of [GIT_PRODUCER, TOKEN_PRODUCER]) {
+        const eventFile = path.join(root, `private-${path.basename(script)}-${sourceId.length}`, "events.ndjson");
+        const result = runProducer(script, {
+          cwd: root,
+          env: {
+            THIRDSPACE_EVENT_FILE: eventFile,
+            THIRDSPACE_SOURCE_ID: sourceId,
+            THIRDSPACE_AGENT: "codex",
+            THIRDSPACE_SESSION_ID: "stable-session",
+          },
+        });
+        assert.notEqual(result.status, 0, `${path.basename(script)} accepted ${sourceId}`);
+        assert.match(result.stderr, /THIRDSPACE_SOURCE_ID/i);
+        assert.equal(fs.existsSync(eventFile), false);
+      }
+    }
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("Token producer sanitizes a full session payload received through stdin", () => {
+  const root = temporaryDirectory("remote-events-token-stdin-");
+  try {
+    const eventFile = path.join(root, "private tokens", "events.ndjson");
+    const secret = "PROMPT-MUST-NOT-ENTER-ARGV-OR-EVENT";
+    const payload = JSON.stringify({
+      source_id: "source-A",
+      agent: "codex",
+      session_id: "session-from-stdin",
+      model: "gpt-5.6",
+      usage: { input_tokens: 40, output_tokens: 2, total_tokens: 42 },
+      transcript: [{ role: "user", content: secret }],
+      tool_calls: [{ command: secret }],
+    });
+
+    const result = runProducer(TOKEN_PRODUCER, {
+      cwd: root,
+      env: { THIRDSPACE_EVENT_FILE: eventFile },
+      args: ["--stdin"],
+      input: payload,
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.error, undefined);
+
+    const [event] = readEvents(eventFile);
+    assert.equal(event.source_id, "source-A");
+    assert.equal(event.session_id, "session-from-stdin");
+    assert.deepEqual(event.metrics, {
+      input_tokens: 40,
+      output_tokens: 2,
+      cache_read_tokens: null,
+      cache_write_tokens: null,
+      total_tokens: 42,
+    });
+    assert.equal(JSON.stringify(event).includes(secret), false);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("producers reject symlink destinations, symlink parents, and insecure parents", () => {
+  const root = temporaryDirectory("remote-events-security-paths-");
+  try {
+    execFileSync("git", ["init", "-q"], { cwd: root });
+    execFileSync("git", ["config", "user.name", "Remote Events Test"], { cwd: root });
+    execFileSync("git", ["config", "user.email", "remote-events@example.invalid"], { cwd: root });
+    fs.writeFileSync(path.join(root, "tracked.txt"), "content\n", "utf8");
+    execFileSync("git", ["add", "tracked.txt"], { cwd: root });
+    execFileSync("git", ["commit", "-q", "-m", "Initial commit"], { cwd: root });
+
+    for (const script of [GIT_PRODUCER, TOKEN_PRODUCER]) {
+      const label = path.basename(script, ".sh");
+      const env = {
+        THIRDSPACE_SOURCE_ID: "source-A",
+        THIRDSPACE_AGENT: "codex",
+        THIRDSPACE_SESSION_ID: "stable-session",
+      };
+
+      const secureParent = path.join(root, `${label}-secure`);
+      fs.mkdirSync(secureParent, { mode: 0o700 });
+      const target = path.join(secureParent, "target.ndjson");
+      fs.writeFileSync(target, "sentinel\n", { encoding: "utf8", mode: 0o600 });
+      const eventSymlink = path.join(secureParent, "events.ndjson");
+      fs.symlinkSync(target, eventSymlink);
+      const symlinkResult = runProducer(script, {
+        cwd: root,
+        env: { ...env, THIRDSPACE_EVENT_FILE: eventSymlink },
+      });
+      assert.notEqual(symlinkResult.status, 0);
+      assert.match(symlinkResult.stderr, /symbolic link|too many levels/i);
+      assert.equal(fs.readFileSync(target, "utf8"), "sentinel\n");
+
+      const redirectedParent = path.join(root, `${label}-redirected`);
+      fs.mkdirSync(redirectedParent, { mode: 0o700 });
+      const parentSymlink = path.join(root, `${label}-parent-link`);
+      fs.symlinkSync(redirectedParent, parentSymlink);
+      const parentSymlinkResult = runProducer(script, {
+        cwd: root,
+        env: { ...env, THIRDSPACE_EVENT_FILE: path.join(parentSymlink, "events.ndjson") },
+      });
+      assert.notEqual(parentSymlinkResult.status, 0);
+      assert.match(parentSymlinkResult.stderr, /parent must be a real directory/i);
+      assert.equal(fs.existsSync(path.join(redirectedParent, "events.ndjson")), false);
+
+      const insecureParent = path.join(root, `${label}-insecure`);
+      fs.mkdirSync(insecureParent, { mode: 0o755 });
+      fs.chmodSync(insecureParent, 0o755);
+      const insecureResult = runProducer(script, {
+        cwd: root,
+        env: { ...env, THIRDSPACE_EVENT_FILE: path.join(insecureParent, "events.ndjson") },
+      });
+      assert.notEqual(insecureResult.status, 0);
+      assert.match(insecureResult.stderr, /parent must have mode 0700/i);
+      assert.equal(fs.existsSync(path.join(insecureParent, "events.ndjson")), false);
+    }
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("producers fstat and reject FIFO destinations before chmod or write without hanging", () => {
+  const root = temporaryDirectory("remote-events-non-regular-");
+  try {
+    execFileSync("git", ["init", "-q"], { cwd: root });
+    execFileSync("git", ["config", "user.name", "Remote Events Test"], { cwd: root });
+    execFileSync("git", ["config", "user.email", "remote-events@example.invalid"], { cwd: root });
+    fs.writeFileSync(path.join(root, "tracked.txt"), "content\n", "utf8");
+    execFileSync("git", ["add", "tracked.txt"], { cwd: root });
+    execFileSync("git", ["commit", "-q", "-m", "Initial commit"], { cwd: root });
+
+    for (const script of [GIT_PRODUCER, TOKEN_PRODUCER]) {
+      const parent = path.join(root, `${path.basename(script, ".sh")}-fifo`);
+      fs.mkdirSync(parent, { mode: 0o700 });
+      const fifoWithoutReader = path.join(parent, "events-no-reader.ndjson");
+      execFileSync("mkfifo", [fifoWithoutReader]);
+      const noReaderResult = runProducer(script, {
+        cwd: root,
+        env: {
+          THIRDSPACE_EVENT_FILE: fifoWithoutReader,
+          THIRDSPACE_SOURCE_ID: "source-A",
+          THIRDSPACE_AGENT: "codex",
+          THIRDSPACE_SESSION_ID: "stable-session",
+        },
+        timeout: 1000,
+      });
+      assert.equal(noReaderResult.error, undefined, `${path.basename(script)} hung opening a FIFO destination`);
+      assert.notEqual(noReaderResult.status, 0);
+      assert.match(noReaderResult.stderr, /regular file/i);
+
+      const fifo = path.join(parent, "events.ndjson");
+      execFileSync("mkfifo", [fifo]);
+      fs.chmodSync(fifo, 0o640);
+      const reader = fs.openSync(fifo, fs.constants.O_RDONLY | fs.constants.O_NONBLOCK);
+      try {
+        const result = runProducer(script, {
+          cwd: root,
+          env: {
+            THIRDSPACE_EVENT_FILE: fifo,
+            THIRDSPACE_SOURCE_ID: "source-A",
+            THIRDSPACE_AGENT: "codex",
+            THIRDSPACE_SESSION_ID: "stable-session",
+          },
+          timeout: 1000,
+        });
+        assert.equal(result.error, undefined, `${path.basename(script)} hung on a FIFO destination`);
+        assert.notEqual(result.status, 0);
+        assert.match(result.stderr, /regular file/i);
+        assertPrivateMode(fifo, 0o640);
+      } finally {
+        fs.closeSync(reader);
+      }
     }
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
