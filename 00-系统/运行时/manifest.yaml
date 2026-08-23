@@ -1,4 +1,4 @@
-version: "2026-05-26"
+version: "2026-08-23"
 description: "ThirdSpace 可迁移运行时资产索引。路径均相对于 vault 根（{VAULT}）。"
 # 注意：vault_root 故意不写死，由 resolve-vault 在运行时动态确定。
 # 在 vault 根目录工作时，所有路径均为相对路径。
@@ -25,6 +25,29 @@ obsidian_plugins:
     version: "0.2.0"
     required: true
     enable_on_init: true
+
+# Apple Calendar/Reminders 集成：源码随 vault 分发，可执行文件在目标 Mac 上本地构建。
+local_integrations:
+  eventkit:
+    skill_source: "00-系统/Skills/eventkit"
+    adapter_source: "00-系统/Skills/eventkit/scripts/eventkit-adapter.mjs"
+    bridge_source: "00-系统/Skills/eventkit/scripts/eventkit-bridge"
+    local_build_command: "bash 00-系统/Skills/eventkit/scripts/build-bridge.sh"
+    supported_platform: "macOS 14+"
+    permissions:
+      - "Calendar full access"
+      - "Reminders full access"
+    authorization_scope: "per executable identity and path"
+    executable_override: "THIRDSPACE_EVENTKIT_BRIDGE"
+    distributable_artifacts:
+      - "00-系统/Skills/eventkit/SKILL.md"
+      - "00-系统/Skills/eventkit/references/protocol.md"
+      - "00-系统/Skills/eventkit/scripts/build-bridge.sh"
+      - "00-系统/Skills/eventkit/scripts/eventkit-adapter.mjs"
+      - "00-系统/Skills/eventkit/scripts/eventkit-bridge/Package.swift"
+      - "00-系统/Skills/eventkit/scripts/eventkit-bridge/Info.plist"
+      - "00-系统/Skills/eventkit/scripts/eventkit-bridge/Sources"
+    local_build_artifacts_tracked: false
 
 install:
   # 在 vault 根目录执行（VAULT="."）：

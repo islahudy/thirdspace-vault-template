@@ -18,6 +18,32 @@ source: "agent"
 - `remote-events/`：远端 Git/Agent Exit 事件生产器、示例和服务器端安装说明。
 - `manifest.yaml`：当前运行时资产索引（路径无关，无硬编码绝对路径）。
 
+## Apple EventKit 本地 Bridge
+
+EventKit Skill 的 Swift Bridge 只支持 macOS 14 及以上。源码随 vault 分发，发布可执行文件必须在每台 Mac 上本地构建；`eventkit-bridge/.build/` 不是可分发资产，不应由 Git 跟踪。在 vault 根目录执行：
+
+```bash
+bash 00-系统/Skills/eventkit/scripts/build-bridge.sh
+node 00-系统/Skills/eventkit/scripts/eventkit-adapter.mjs call \
+  --json '{"action":"auth.status","params":{}}'
+node 00-系统/Skills/eventkit/scripts/eventkit-adapter.mjs call \
+  --json '{"action":"auth.request","params":{}}'
+```
+
+第一条命令构建 release Bridge 并检查 Calendar/Reminders 用途声明。先用 `auth.status` 只检查状态；`auth.request` 会触发 macOS 系统授权，仅能在用户当场并明确同意后运行。普通 `today`/每日开场流程永远不运行 `auth.request`；权限不可用时标记 Calendar 或 Reminders 来源不可用，并继续本地任务流程。
+
+默认可执行文件是 `00-系统/Skills/eventkit/scripts/eventkit-bridge/.build/release/eventkit-bridge`。需要使用其他本地构建时，传入其绝对路径：
+
+```bash
+export THIRDSPACE_EVENTKIT_BRIDGE="/absolute/path/to/eventkit-bridge"
+```
+
+macOS 会按可执行文件的身份和路径保存 Calendar/Reminders 授权。重新构建、移动 Bridge 或切换 `THIRDSPACE_EVENTKIT_BRIDGE` 后，授权可能需要更新。如果返回 `PERMISSION_DENIED`：
+
+1. 停止 Calendar/Reminders 读写，不要自动重试 `auth.request`。
+2. 请用户在“系统设置 → 隐私与安全性 → 日历”和“提醒事项”中检查对应 Bridge 的完全访问权限。
+3. 如果条目缺失或指向旧构建，在用户明确同意后为当前 Bridge 重新运行 `auth.request`，再次检查 `auth.status`。
+
 ## 初始化（新机器）
 
 在 vault 根目录执行：

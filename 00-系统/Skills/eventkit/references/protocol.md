@@ -51,6 +51,24 @@ Field constraints and defaults:
 - Omitted or `null` optional update fields leave existing values unchanged; the current protocol does not use `null` to clear a field.
 - An omitted `calendarID` or `listID` selects the current item location on update, or the system default on create.
 
+### Parameter types and nullability
+
+Every required parameter has type `string`, must be non-empty, and must not be `null`. Every optional parameter accepts either its declared JSON type, omission, or JSON `null`; omission and `null` are equivalent. A value of any other JSON type produces `INVALID_REQUEST`. Optional string fields may be empty unless a more specific constraint below rejects the value.
+
+| Parameters | JSON type when present | Additional constraint |
+|---|---|---|
+| `calendarIDs`, `listIDs` | `string[]` | Every array element must be a string. |
+| `allDay` | `boolean` | Defaults to `false` on create. |
+| `calendarID`, `location`, `notes`, `title`, `listID` | `string` | Optional `title` applies only to update actions; required create titles remain non-empty. |
+| `start`, `end`, `startDate`, `dueDate` | `string` | Absolute ISO 8601 timestamp with explicit timezone. Required Calendar `start`/`end` remain non-empty. |
+| `url` | `string` | Absolute URL with a scheme. |
+| `availability` | `string` | `notSupported`, `free`, `busy`, `tentative`, or `unavailable`. |
+| `span` | `string` | `thisEvent` or `futureEvents`; required by behavior for recurring Calendar mutation. |
+| `status` | `string` | `all`, `incomplete`, or `completed`; defaults to `all`. |
+| `priority` | JSON integer | Finite integer representable by the Bridge; defaults to `0` on create. |
+
+For create actions, an omitted or `null` optional field uses the documented default or no value. For update actions, an omitted or `null` optional field leaves the stored value unchanged; this protocol has no clear-by-`null` operation. For list actions, an omitted or `null` ID array applies no collection filter.
+
 ## DTOs
 
 ### `AuthorizationSnapshot`
@@ -116,6 +134,24 @@ Calendar collections and Reminder lists share this shape:
 
 ## Responses and errors
 
+The formal response union is:
+
+```text
+BridgeResponse<T> =
+  | { success: true; data: T }
+  | { success: false; error: BridgeError }
+
+BridgeError = {
+  code: BridgeErrorCode;
+  message: string;
+  details?: JSONValue;
+}
+
+JSONValue = null | boolean | number | string | JSONValue[] | { [key: string]: JSONValue }
+```
+
+Exactly one branch is present: successful responses contain `data` and no `error`; protocol failures contain `error` and no `data`. `code` and `message` are required strings. `details` is omitted when unavailable and, when present, may be any JSON value.
+
 Success:
 
 ```json
@@ -162,3 +198,15 @@ The Node adapter resolves protocol failures unchanged; callers must inspect `res
 | `INVALID_BRIDGE_RESPONSE` | Spawn, exit status, output size, JSON, or response-shape validation failed. |
 
 The adapter executable is selected from `THIRDSPACE_EVENTKIT_BRIDGE`, then `scripts/eventkit-bridge/.build/release/eventkit-bridge` relative to this Skill.
+
+For library callers, the formal pre-protocol failure is an exception rather than a `BridgeResponse`:
+
+```text
+EventKitAdapterError extends Error = {
+  name: "EventKitAdapterError";
+  code: "BRIDGE_NOT_FOUND" | "BRIDGE_TIMEOUT" | "INVALID_BRIDGE_RESPONSE";
+  message: string;
+}
+```
+
+The CLI catches that exception, writes a protocol-shaped `{ success: false, error: { code, message } }` JSON value, and exits nonzero. Library callers receive the rejected `EventKitAdapterError` directly.
