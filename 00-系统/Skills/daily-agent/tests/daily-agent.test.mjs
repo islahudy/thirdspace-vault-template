@@ -155,10 +155,12 @@ test("task creation stores a validated EventKit reference", () => {
     const context = testContext(root);
     const task = createTask(context, {
       title: "Submit report",
-      external_ref: { provider: "eventkit", kind: "reminder", id: "REM-1" },
+      external_ref: {
+        provider: "eventkit", kind: "reminder", id: "REM-1", external_id: "EXT-REM-1",
+      },
     });
     assert.deepEqual(task.external_ref, {
-      provider: "eventkit", kind: "reminder", id: "REM-1",
+      provider: "eventkit", kind: "reminder", id: "REM-1", external_id: "EXT-REM-1",
     });
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
@@ -171,6 +173,24 @@ test("task creation rejects incomplete EventKit references", () => {
     assert.throws(
       () => createTask(testContext(root), {
         title: "Broken", external_ref: { provider: "eventkit", kind: "reminder", id: "" },
+      }),
+      /invalid external_ref/,
+    );
+    assert.throws(
+      () => createTask(testContext(root), {
+        title: "Broken external ID",
+        external_ref: {
+          provider: "eventkit", kind: "reminder", id: "REM-1", external_id: "   ",
+        },
+      }),
+      /invalid external_ref/,
+    );
+    assert.throws(
+      () => createTask(testContext(root), {
+        title: "Wrong external ID type",
+        external_ref: {
+          provider: "eventkit", kind: "reminder", id: "REM-1", external_id: 42,
+        },
       }),
       /invalid external_ref/,
     );
@@ -200,8 +220,14 @@ test("completion accepts the EventKit completion timestamp", () => {
 test("CLI forwards EventKit reference and completion timestamp", () => {
   const root = fixtureVault();
   try {
-    const linked = runCli(root, "task-add", "--vault", root, "--title", "Linked", "--external-kind", "reminder", "--external-id", "REM-2");
-    assert.deepEqual(linked.task.external_ref, { provider: "eventkit", kind: "reminder", id: "REM-2" });
+    const linked = runCli(
+      root, "task-add", "--vault", root, "--title", "Linked",
+      "--external-kind", "reminder", "--external-id", "REM-2",
+      "--external-external-id", "EXT-REM-2",
+    );
+    assert.deepEqual(linked.task.external_ref, {
+      provider: "eventkit", kind: "reminder", id: "REM-2", external_id: "EXT-REM-2",
+    });
     const unlinked = runCli(root, "task-add", "--vault", root, "--title", "Unlinked", "--external-kind", "calendar");
     assert.equal(unlinked.task.external_ref, undefined);
     const completed = runCli(root, "task-transition", "--vault", root, "--id", linked.task.id, "--status", "completed", "--completed-at", "2026-08-22T08:30:00+08:00");
@@ -221,6 +247,43 @@ test("linked completed reminder proposes local completion", () => {
   assert.deepEqual(result.complete, [{
     taskId: "task-1", completedAt: "2026-08-22T08:30:00+08:00",
   }]);
+});
+
+test("changed reminder local ID reconciles by linked external ID", () => {
+  const result = classifyReminderUpdates(
+    [{ id: "task-1", status: "active", external_ref: {
+      provider: "eventkit", kind: "reminder", id: "REM-STALE", external_id: "EXT-REM-1",
+    } }],
+    [{
+      id: "REM-NEW", externalId: "EXT-REM-1", completed: true,
+      completionDate: "2026-08-22T08:30:00+08:00",
+    }],
+  );
+
+  assert.deepEqual(result.complete, [{
+    taskId: "task-1", completedAt: "2026-08-22T08:30:00+08:00",
+  }]);
+  assert.deepEqual(result.brokenRefs, []);
+});
+
+test("duplicate reminder external IDs do not select a candidate", () => {
+  const result = classifyReminderUpdates(
+    [{ id: "task-1", status: "active", external_ref: {
+      provider: "eventkit", kind: "reminder", id: "REM-STALE", external_id: "EXT-DUPLICATE",
+    } }],
+    [
+      {
+        id: "REM-A", externalId: "EXT-DUPLICATE", completed: true,
+        completionDate: "2026-08-22T08:30:00+08:00",
+      },
+      {
+        id: "REM-B", externalId: "EXT-DUPLICATE", completed: true,
+        completionDate: "2026-08-22T08:30:00+08:00",
+      },
+    ],
+  );
+
+  assert.deepEqual(result.complete, []);
 });
 
 test("reopened reminder requires confirmation", () => {

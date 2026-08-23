@@ -29,7 +29,10 @@ import Foundation
         return .success(try calendarService.list(try calendarListRequest(values)))
       case "calendar.get":
         try requireFullAccess(permissions.status().calendar, resource: "calendar")
-        return .success(try calendarService.get(id: try values.requiredString("id")))
+        return .success(try calendarService.get(
+          id: try values.requiredString("id"),
+          externalId: try values.optionalNonEmptyString("externalId")
+        ))
       case "calendar.create":
         try requireFullAccess(permissions.status().calendar, resource: "calendar")
         return .success(try calendarService.create(try calendarCreateRequest(values)))
@@ -37,12 +40,17 @@ import Foundation
         try requireFullAccess(permissions.status().calendar, resource: "calendar")
         return .success(try calendarService.update(
           id: try values.requiredString("id"),
+          externalId: try values.optionalNonEmptyString("externalId"),
           request: try calendarUpdateRequest(values)
         ))
       case "calendar.delete":
         try requireFullAccess(permissions.status().calendar, resource: "calendar")
         let span = try values.optionalEnum("span", as: RecurrenceSpan.self)
-        try calendarService.delete(id: try values.requiredString("id"), span: span)
+        try calendarService.delete(
+          id: try values.requiredString("id"),
+          externalId: try values.optionalNonEmptyString("externalId"),
+          span: span
+        )
         return .success(["deleted": true])
       case "reminder.lists":
         try requireFullAccess(permissions.status().reminders, resource: "reminders")
@@ -52,7 +60,10 @@ import Foundation
         return .success(try await reminderService.list(try reminderListRequest(values)))
       case "reminder.get":
         try requireFullAccess(permissions.status().reminders, resource: "reminders")
-        return .success(try await reminderService.get(id: try values.requiredString("id")))
+        return .success(try await reminderService.get(
+          id: try values.requiredString("id"),
+          externalId: try values.optionalNonEmptyString("externalId")
+        ))
       case "reminder.create":
         try requireFullAccess(permissions.status().reminders, resource: "reminders")
         return .success(try await reminderService.create(try reminderCreateRequest(values)))
@@ -60,22 +71,28 @@ import Foundation
         try requireFullAccess(permissions.status().reminders, resource: "reminders")
         return .success(try await reminderService.update(
           id: try values.requiredString("id"),
+          externalId: try values.optionalNonEmptyString("externalId"),
           request: try reminderUpdateRequest(values)
         ))
       case "reminder.delete":
         try requireFullAccess(permissions.status().reminders, resource: "reminders")
-        try await reminderService.delete(id: try values.requiredString("id"))
+        try await reminderService.delete(
+          id: try values.requiredString("id"),
+          externalId: try values.optionalNonEmptyString("externalId")
+        )
         return .success(["deleted": true])
       case "reminder.complete":
         try requireFullAccess(permissions.status().reminders, resource: "reminders")
         return .success(try await reminderService.setCompleted(
           id: try values.requiredString("id"),
+          externalId: try values.optionalNonEmptyString("externalId"),
           completed: true
         ))
       case "reminder.reopen":
         try requireFullAccess(permissions.status().reminders, resource: "reminders")
         return .success(try await reminderService.setCompleted(
           id: try values.requiredString("id"),
+          externalId: try values.optionalNonEmptyString("externalId"),
           completed: false
         ))
       default:
@@ -186,6 +203,12 @@ private struct RequestParameters {
   func optionalString(_ key: String) throws -> String? {
     guard let raw = values[key], raw != .null else { return nil }
     guard case .string(let value) = raw else { throw invalid(key, expected: "a string") }
+    return value
+  }
+
+  func optionalNonEmptyString(_ key: String) throws -> String? {
+    guard let value = try optionalString(key) else { return nil }
+    guard !value.isEmpty else { throw invalid(key, expected: "a non-empty string") }
     return value
   }
 

@@ -34,13 +34,16 @@ Ask a concrete Calendar/Reminder choice. Do not write until the answer establish
 Create, update, delete, complete, and reopen only from an explicit user instruction. A Pi suggestion is not authorization.
 
 - Always confirm deletion immediately before calling `calendar.delete` or `reminder.delete`.
-- Update and delete by the returned EventKit `id`, never by title or time. If the identifier is missing, fetch fresh candidates and ask the user to disambiguate.
+- Persist both `id` and `externalId` returned by create. Supply both on later get, update, delete, complete, and reopen calls; the bridge tries the local `id` first and uses `externalId` only as an on-demand fallback when that local lookup misses.
+- Never locate an item by title or time. If the local and external identifiers cannot resolve exactly one item of the expected type, report the structured failure without mutating any candidate.
 - Before changing or deleting a recurring Calendar event, ask whether the scope is `thisEvent` or `futureEvents`, then pass that `span`. Never infer the recurrence span.
 - Treat permission requests as system authorization changes: inspect `auth.status`, explain the local access, and call `auth.request` only after explicit consent.
 
 ## Reads and freshness
 
 Fetch from EventKit on every read. Do not answer from a prior response, cached DTO, or linked local task. Store identifiers only as locators, never Calendar/Reminder contents or authorization state.
+
+Treat fresh EventKit results as authoritative even when a fallback returns a new local `id`. The external identifier preserves a lookup path across full sync; it is not synchronization, cached Apple state, or permission to overwrite a local link silently.
 
 For today's agenda, calculate explicit local-day boundaries with their timezone, call `calendar.list` for that interval, and call `reminder.list` with the required status. Reason over the fresh responses only after both calls return.
 

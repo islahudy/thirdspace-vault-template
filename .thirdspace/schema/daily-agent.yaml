@@ -15,6 +15,7 @@ task:
     provider_values: [eventkit]
     kind_values: [calendar, reminder]
     required_fields: [provider, kind, id]
+    optional_fields: [external_id]
 
 reading:
   kind_values: [paper, blog]

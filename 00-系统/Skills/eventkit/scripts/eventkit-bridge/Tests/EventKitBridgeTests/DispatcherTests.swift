@@ -159,6 +159,45 @@ import Testing
     #expect(try errorCode(response) == "EVENT_NOT_FOUND")
   }
 
+  @Test func lookupAndMutationActionsForwardExternalIdentifierFallback() async throws {
+    let actions = [
+      "calendar.get", "calendar.update", "calendar.delete",
+      "reminder.get", "reminder.update", "reminder.delete",
+      "reminder.complete", "reminder.reopen",
+    ]
+
+    for action in actions {
+      let store = FakeDispatcherStore()
+      let dispatcher = BridgeDispatcher(store: store, permissions: FakePermissionClient())
+      var values: [String: JSONValue] = [
+        "id": .string(action.hasPrefix("calendar.") ? "EVT-STALE" : "REM-STALE"),
+        "externalId": .string(action.hasPrefix("calendar.") ? "EXT-EVT-1" : "EXT-REM-1"),
+      ]
+      if action.hasSuffix(".update") { values["title"] = .string("Updated") }
+
+      let response = await dispatcher.dispatch(request(action, values))
+
+      #expect(
+        (try responseObject(response))["success"] as? Bool == true,
+        "Expected \(action) to use the external identifier fallback"
+      )
+      #expect(store.requestedExternalIDs.count == 1)
+    }
+  }
+
+  @Test func malformedExternalIdentifierIsRejectedBeforeLookup() async throws {
+    let store = FakeDispatcherStore()
+    let dispatcher = BridgeDispatcher(store: store, permissions: FakePermissionClient())
+
+    let response = await dispatcher.dispatch(request("reminder.get", [
+      "id": .string("REM-STALE"),
+      "externalId": .number(1),
+    ]))
+
+    #expect(try errorCode(response) == "INVALID_REQUEST")
+    #expect(store.requestedExternalIDs.isEmpty)
+  }
+
   @Test func permissionServiceMapsAllEventKitStatuses() {
     let cases: [(EKAuthorizationStatus, AuthorizationState)] = [
       (.notDetermined, .notDetermined),
@@ -253,6 +292,7 @@ private func errorCode(_ response: BridgeResponse) throws -> String? {
   private lazy var reminder = FakeDispatcherReminder(list: reminderList)
   private(set) var calendarReadCount = 0
   private(set) var savedEventAvailabilities: [String] = []
+  private(set) var requestedExternalIDs: [String] = []
 
   func calendars() throws -> [EventCalendar] {
     calendarReadCount += 1
@@ -271,6 +311,13 @@ private func errorCode(_ response: BridgeResponse) throws -> String? {
 
   func event(withIdentifier identifier: String) -> (any EventRecord)? {
     identifier == event.id ? event : nil
+  }
+
+  func calendarItems(withExternalIdentifier identifier: String) -> [CalendarItemRecord] {
+    requestedExternalIDs.append(identifier)
+    if identifier == event.externalId { return [.event(event)] }
+    if identifier == reminder.externalId { return [.reminder(reminder)] }
+    return []
   }
 
   func makeEvent() -> any EventRecord {
@@ -308,6 +355,7 @@ private func errorCode(_ response: BridgeResponse) throws -> String? {
 
 @MainActor private final class FakeDispatcherEvent: EventRecord {
   var id: String?
+  let externalId: String? = "EXT-EVT-1"
   var title = "Planning"
   var start = Date(timeIntervalSince1970: 1_787_424_400)
   var end = Date(timeIntervalSince1970: 1_787_428_000)
@@ -327,6 +375,7 @@ private func errorCode(_ response: BridgeResponse) throws -> String? {
 
 @MainActor private final class FakeDispatcherReminder: ReminderRecord {
   var id: String?
+  let externalId: String? = "EXT-REM-1"
   var title = "Buy milk"
   var list: EventCalendar?
   var isCompleted = false

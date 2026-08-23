@@ -10,13 +10,25 @@ const STATUSES = new Set(["inbox", "active", "waiting", "completed", "cancelled"
 
 function normalizeExternalRef(value) {
   if (value == null) return undefined;
+  let externalId;
   if (value.provider !== "eventkit"
       || !new Set(["calendar", "reminder"]).has(value.kind)
       || typeof value.id !== "string"
       || value.id.trim() === "") {
     throw new Error("invalid external_ref");
   }
-  return { provider: "eventkit", kind: value.kind, id: value.id.trim() };
+  if (Object.hasOwn(value, "external_id")) {
+    if (typeof value.external_id !== "string" || value.external_id.trim() === "") {
+      throw new Error("invalid external_ref");
+    }
+    externalId = value.external_id.trim();
+  }
+  return {
+    provider: "eventkit",
+    kind: value.kind,
+    id: value.id.trim(),
+    ...(externalId ? { external_id: externalId } : {}),
+  };
 }
 
 function stateFile(context, name) {

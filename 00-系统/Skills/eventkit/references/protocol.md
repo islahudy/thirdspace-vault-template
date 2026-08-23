@@ -25,22 +25,22 @@ All timestamps are absolute ISO 8601 strings with an explicit `Z` or numeric off
 | `auth.request` | none | none | `AuthorizationSnapshot` |
 | `calendar.calendars` | none | none | `CalendarDTO[]` |
 | `calendar.list` | `start`, `end` | `calendarIDs: string[]` | `EventDTO[]`, ordered by start |
-| `calendar.get` | `id` | none | `EventDTO` |
+| `calendar.get` | `id` | `externalId` | `EventDTO` |
 | `calendar.create` | `title`, `start`, `end` | `allDay`, `calendarID`, `location`, `notes`, `url`, `availability` | created `EventDTO` |
-| `calendar.update` | `id` | `title`, `start`, `end`, `allDay`, `calendarID`, `location`, `notes`, `url`, `availability`, `span` | updated `EventDTO` |
-| `calendar.delete` | `id` | `span` | `{ "deleted": true }` |
+| `calendar.update` | `id` | `externalId`, `title`, `start`, `end`, `allDay`, `calendarID`, `location`, `notes`, `url`, `availability`, `span` | updated `EventDTO` |
+| `calendar.delete` | `id` | `externalId`, `span` | `{ "deleted": true }` |
 | `reminder.lists` | none | none | `CalendarDTO[]` |
 | `reminder.list` | none | `status`, `listIDs: string[]` | `ReminderDTO[]` |
-| `reminder.get` | `id` | none | `ReminderDTO` |
+| `reminder.get` | `id` | `externalId` | `ReminderDTO` |
 | `reminder.create` | `title` | `listID`, `startDate`, `dueDate`, `priority`, `notes` | created `ReminderDTO` |
-| `reminder.update` | `id` | `title`, `listID`, `startDate`, `dueDate`, `priority`, `notes` | updated `ReminderDTO` |
-| `reminder.delete` | `id` | none | `{ "deleted": true }` |
-| `reminder.complete` | `id` | none | completed `ReminderDTO` |
-| `reminder.reopen` | `id` | none | reopened `ReminderDTO` |
+| `reminder.update` | `id` | `externalId`, `title`, `listID`, `startDate`, `dueDate`, `priority`, `notes` | updated `ReminderDTO` |
+| `reminder.delete` | `id` | `externalId` | `{ "deleted": true }` |
+| `reminder.complete` | `id` | `externalId` | completed `ReminderDTO` |
+| `reminder.reopen` | `id` | `externalId` | reopened `ReminderDTO` |
 
 Field constraints and defaults:
 
-- `id`, `title`, `start`, and `end` required fields are non-empty strings.
+- `id`, `externalId`, `title`, `start`, and `end` locator/required fields are non-empty strings when present.
 - `allDay` is boolean and defaults to `false` on create.
 - `url` is an absolute URL with a scheme.
 - `availability` is `notSupported`, `free`, `busy`, `tentative`, or `unavailable`; create defaults to `busy`.
@@ -59,6 +59,7 @@ Every required parameter has type `string`, must be non-empty, and must not be `
 |---|---|---|
 | `calendarIDs`, `listIDs` | `string[]` | Every array element must be a string. |
 | `allDay` | `boolean` | Defaults to `false` on create. |
+| `externalId` | `string` | Non-empty secondary locator accepted only by get/update/delete/complete/reopen actions. |
 | `calendarID`, `location`, `notes`, `title`, `listID` | `string` | Optional `title` applies only to update actions; required create titles remain non-empty. |
 | `start`, `end`, `startDate`, `dueDate` | `string` | Absolute ISO 8601 timestamp with explicit timezone. Required Calendar `start`/`end` remain non-empty. |
 | `url` | `string` | Absolute URL with a scheme. |
@@ -99,6 +100,7 @@ Calendar collections and Reminder lists share this shape:
 ```json
 {
   "id": "EVT-1",
+  "externalId": "SERVER-EVT-1",
   "title": "Group meeting",
   "start": "2026-08-23T02:00:00Z",
   "end": "2026-08-23T03:00:00Z",
@@ -112,13 +114,14 @@ Calendar collections and Reminder lists share this shape:
 }
 ```
 
-`location`, `notes`, and `url` are omitted when unavailable. Returned timestamps are normalized ISO 8601 instants, commonly using `Z`.
+`externalId`, `location`, `notes`, and `url` are omitted when unavailable. Returned timestamps are normalized ISO 8601 instants, commonly using `Z`.
 
 ### `ReminderDTO`
 
 ```json
 {
   "id": "REM-1",
+  "externalId": "SERVER-REM-1",
   "title": "Read paper",
   "list": { "id": "LIST-1", "title": "Research", "writable": true },
   "completed": false,
@@ -130,7 +133,9 @@ Calendar collections and Reminder lists share this shape:
 }
 ```
 
-`completionDate`, `startDate`, `dueDate`, and `notes` are omitted when unavailable. Completing a Reminder lets EventKit set its completion timestamp; reopening clears it.
+`externalId`, `completionDate`, `startDate`, `dueDate`, and `notes` are omitted when unavailable. Completing a Reminder lets EventKit set its completion timestamp; reopening clears it.
+
+`id` is EventKit's local identifier and remains the primary locator. `externalId` is the secondary server-provided locator. For actions that accept both, the bridge tries `id` first and performs an external lookup only after that lookup misses. Exactly one candidate of the expected type may be used; zero candidates retain `EVENT_NOT_FOUND` or `REMINDER_NOT_FOUND`, while multiple expected-type candidates return `EVENTKIT_ERROR` without mutation. This fallback is request-scoped and does not cache or synchronize Apple data.
 
 ## Responses and errors
 

@@ -9,6 +9,8 @@ description: Use when the user starts the day, reviews remaining work, manages p
 
 Operate ThirdSpace as a personal research-management assistant. Current state lives in `.thirdspace/data/daily-agent/`; worklogs are snapshots, never the task source of truth.
 
+When an authorized Calendar or Reminder create returns a DTO, persist its `id` as `external_ref.id` and its available `externalId` as `external_ref.external_id`. Supply both locators on later EventKit reads and mutations. Fresh EventKit DTOs remain authoritative; the local reference is never cached Apple state.
+
 ## Required Load Order
 
 1. Resolve the Vault and read `.thirdspace/schema/daily-agent.yaml`.
@@ -23,9 +25,9 @@ Run this sequence in order:
 1. Call local `opening`.
 2. Using the machine's local timezone, calculate `[00:00, next 00:00)` as absolute timestamps and call EventKit `calendar.list` for that interval.
 3. Call EventKit `reminder.list` once with `status: "incomplete"` and once with `status: "completed"`; from the completed response retain only Reminders whose `completionDate` is inside the same local-day interval.
-4. Collect every EventKit Reminder ID linked from the loaded local tasks. For each linked ID absent from the incomplete and today-completed list results, call fresh `reminder.get` by that ID.
+4. Collect both EventKit Reminder identifiers linked from the loaded local tasks. For each link absent from the incomplete and today-completed list results by local `id` or a unique `external_id` match, call fresh `reminder.get` with `id` and optional `externalId`.
 5. Add every successful `reminder.get` DTO to reconciliation, including a Reminder completed before today. Only a `REMINDER_NOT_FOUND` response confirms a missing ID; any other lookup failure is an unavailable anomaly for manual handling, not a broken reference.
-6. Call `classifyReminderUpdates` with the fresh Reminder DTOs and the explicitly confirmed-missing IDs. Match only `external_ref.id`; never match by title or import an unlinked Apple item.
+6. Call `classifyReminderUpdates` with the fresh Reminder DTOs and the explicitly confirmed-missing local IDs. Match `external_ref.id` first, then uniquely match `external_ref.external_id` to a DTO `externalId`; never match by title or import an unlinked Apple item.
 7. Apply each `complete` entry with `task-transition --status completed --completed-at ...`; only local `inbox`, `active`, or `waiting` tasks are eligible. Never auto-complete a `cancelled` task. A completed Reminder without `completionDate` is an anomaly for manual handling and must not change local state.
 8. For every `reopenConfirmations` entry, ask before transitioning the local task back to `active`. Report `brokenRefs` and `anomalies` without repairing, relinking, or mutating them.
 9. Present overdue, due-soon, upcoming, stale, waiting, and active local items, then today's Calendar events and Reminders (or a clear unavailable label), before asking about today's focus.
@@ -78,6 +80,7 @@ Never print event records, raw lines, normalized payloads, prompts, transcripts,
 node scripts/daily-agent.mjs opening --vault {VAULT}
 node scripts/daily-agent.mjs project-register --vault {VAULT} --id ID --name NAME --path PATH
 node scripts/daily-agent.mjs task-add --vault {VAULT} --title TITLE --priority normal --tags 科研,组会
+node scripts/daily-agent.mjs task-add --vault {VAULT} --title TITLE --external-kind reminder --external-id LOCAL_ID --external-external-id SERVER_ID
 node scripts/daily-agent.mjs task-transition --vault {VAULT} --id ID --status completed
 node scripts/daily-agent.mjs reading-scan --vault {VAULT}
 node scripts/daily-agent.mjs reading-confirm --vault {VAULT} --id ID --decision accept
@@ -102,6 +105,7 @@ All commands return one JSON value. On error, stop and report stderr; do not rep
 - Treating the worklog snapshot as the current task list.
 - Completing the opening before the user selects focus items.
 - Starting EventKit from `daily-agent.mjs`, matching by title, or importing unlinked Apple items.
+- Persisting only one identifier from an EventKit create response, or treating `external_id` as cached Apple state rather than an on-demand locator.
 - Treating absence from filtered list results as `REMINDER_NOT_FOUND` instead of fetching the linked ID.
 - Auto-completing a cancelled task or a Reminder without `completionDate`.
 - Calling `auth.request` during an ordinary `today` flow or stopping local planning when EventKit is unavailable.

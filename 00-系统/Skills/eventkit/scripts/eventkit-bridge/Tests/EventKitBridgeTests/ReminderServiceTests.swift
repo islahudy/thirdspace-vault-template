@@ -20,6 +20,16 @@ import Testing
     #expect(result.map(\.id) == ["REM-1"])
   }
 
+  @Test func reminderDTOIncludesExternalIdentifierWhenAvailable() async throws {
+    let store = FakeReminderStore(reminders: [
+      .incomplete(id: "REM-1", externalId: "EXT-REM-1"),
+    ])
+
+    let result = try await ReminderService(store: store).list()
+
+    #expect(result.first?.externalId == "EXT-REM-1")
+  }
+
   @Test func listUsesCompletedPredicate() async throws {
     let store = FakeReminderStore(reminders: [.completed(id: "REM-1")])
 
@@ -54,12 +64,67 @@ import Testing
   }
 
   @Test func getFetchesReminderByIdentifier() async throws {
-    let store = FakeReminderStore(reminders: [.incomplete(id: "REM-1")])
+    let store = FakeReminderStore(reminders: [
+      .incomplete(id: "REM-1", externalId: "EXT-REM-1"),
+    ])
 
-    let result = try await ReminderService(store: store).get(id: "REM-1")
+    let result = try await ReminderService(store: store).get(
+      id: "REM-1",
+      externalId: "EXT-REM-1"
+    )
 
     #expect(store.requestedReminderIDs == ["REM-1"])
+    #expect(store.requestedExternalIDs.isEmpty)
     #expect(result.id == "REM-1")
+  }
+
+  @Test func staleIdentifierFallsBackToOneExternalReminder() async throws {
+    let store = FakeReminderStore(reminders: [
+      .incomplete(id: "REM-NEW", externalId: "EXT-REM-1"),
+    ])
+
+    let result = try await ReminderService(store: store).setCompleted(
+      id: "REM-STALE",
+      externalId: "EXT-REM-1",
+      completed: true
+    )
+
+    #expect(store.requestedReminderIDs == ["REM-STALE"])
+    #expect(store.requestedExternalIDs == ["EXT-REM-1"])
+    #expect(result.id == "REM-NEW")
+    #expect(store.savedReminderIDs == ["REM-NEW"])
+  }
+
+  @Test func zeroExternalReminderMatchesRetainNotFound() async throws {
+    let store = FakeReminderStore()
+
+    let failure = try await bridgeFailure {
+      _ = try await ReminderService(store: store).get(
+        id: "REM-STALE",
+        externalId: "EXT-MISSING"
+      )
+    }
+
+    #expect(failure.error.code == .reminderNotFound)
+    #expect(store.requestedExternalIDs == ["EXT-MISSING"])
+  }
+
+  @Test func multipleExternalReminderMatchesFailWithoutMutation() async throws {
+    let store = FakeReminderStore(reminders: [
+      .incomplete(id: "REM-A", externalId: "EXT-DUPLICATE"),
+      .incomplete(id: "REM-B", externalId: "EXT-DUPLICATE"),
+    ])
+
+    let failure = try await bridgeFailure {
+      try await ReminderService(store: store).delete(
+        id: "REM-STALE",
+        externalId: "EXT-DUPLICATE"
+      )
+    }
+
+    #expect(failure.error.code == .eventKitError)
+    #expect(failure.error.message == "Multiple Reminders share the external identifier.")
+    #expect(store.savedReminderIDs.isEmpty)
   }
 
   @Test func missingReminderUsesStableError() async {
@@ -124,6 +189,7 @@ import Testing
   private(set) var lastReminderQuery: ReminderQuery?
   private(set) var defaultReminderListRequests = 0
   private(set) var requestedReminderIDs: [String] = []
+  private(set) var requestedExternalIDs: [String] = []
   private(set) var savedReminderIDs: [String] = []
 
   init(
@@ -172,8 +238,13 @@ import Testing
     return reminders.first { $0.id == identifier }
   }
 
+  func calendarItems(withExternalIdentifier identifier: String) -> [CalendarItemRecord] {
+    requestedExternalIDs.append(identifier)
+    return reminders.filter { $0.externalId == identifier }.map(CalendarItemRecord.reminder)
+  }
+
   func makeReminder() -> (any ReminderRecord)? {
-    FakeReminder(id: nil, title: "", list: nil, isCompleted: false)
+    FakeReminder(id: nil, externalId: nil, title: "", list: nil, isCompleted: false)
   }
 
   func save(_ reminder: any ReminderRecord) throws {
@@ -208,6 +279,7 @@ import Testing
   static let defaultList = EventCalendar(id: "default", title: "Default", isWritable: true)
 
   var id: String?
+  let externalId: String?
   var title: String
   var list: EventCalendar?
   var isCompleted: Bool
@@ -219,6 +291,7 @@ import Testing
 
   init(
     id: String?,
+    externalId: String?,
     title: String,
     list: EventCalendar?,
     isCompleted: Bool,
@@ -229,6 +302,7 @@ import Testing
     notes: String? = nil
   ) {
     self.id = id
+    self.externalId = externalId
     self.title = title
     self.list = list
     self.isCompleted = isCompleted
@@ -239,13 +313,28 @@ import Testing
     self.notes = notes
   }
 
-  static func incomplete(id: String, listID: String = "default") -> FakeReminder {
-    .init(id: id, title: id, list: .init(id: listID, title: listID, isWritable: true), isCompleted: false)
-  }
-
-  static func completed(id: String, listID: String = "default") -> FakeReminder {
+  static func incomplete(
+    id: String,
+    listID: String = "default",
+    externalId: String? = nil
+  ) -> FakeReminder {
     .init(
       id: id,
+      externalId: externalId,
+      title: id,
+      list: .init(id: listID, title: listID, isWritable: true),
+      isCompleted: false
+    )
+  }
+
+  static func completed(
+    id: String,
+    listID: String = "default",
+    externalId: String? = nil
+  ) -> FakeReminder {
+    .init(
+      id: id,
+      externalId: externalId,
       title: id,
       list: .init(id: listID, title: listID, isWritable: true),
       isCompleted: true,

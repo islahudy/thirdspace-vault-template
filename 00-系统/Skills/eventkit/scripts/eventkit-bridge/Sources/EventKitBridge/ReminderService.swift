@@ -2,6 +2,7 @@ import Foundation
 
 struct ReminderDTO: Codable, Equatable {
   let id: String
+  let externalId: String?
   let title: String
   let list: CalendarDTO
   let completed: Bool
@@ -85,8 +86,8 @@ struct ReminderUpdateRequest {
     ).map(reminderDTO)
   }
 
-  func get(id: String) async throws -> ReminderDTO {
-    try reminderDTO(reminder(withIdentifier: id))
+  func get(id: String, externalId: String? = nil) async throws -> ReminderDTO {
+    try reminderDTO(reminder(withIdentifier: id, externalId: externalId))
   }
 
   func create(_ request: ReminderCreateRequest) async throws -> ReminderDTO {
@@ -104,8 +105,12 @@ struct ReminderUpdateRequest {
     return try reminderDTO(reminder)
   }
 
-  func update(id: String, request: ReminderUpdateRequest) async throws -> ReminderDTO {
-    let reminder = try reminder(withIdentifier: id)
+  func update(
+    id: String,
+    externalId: String? = nil,
+    request: ReminderUpdateRequest
+  ) async throws -> ReminderDTO {
+    let reminder = try reminder(withIdentifier: id, externalId: externalId)
     let list = try writableList(for: request.listID, fallback: reminder.list)
 
     if let title = request.title { reminder.title = title }
@@ -118,8 +123,8 @@ struct ReminderUpdateRequest {
     return try reminderDTO(reminder)
   }
 
-  func delete(id: String) async throws {
-    let reminder = try reminder(withIdentifier: id)
+  func delete(id: String, externalId: String? = nil) async throws {
+    let reminder = try reminder(withIdentifier: id, externalId: externalId)
     _ = try writableList(for: nil, fallback: reminder.list)
     do {
       try store.remove(reminder)
@@ -128,16 +133,38 @@ struct ReminderUpdateRequest {
     }
   }
 
-  func setCompleted(id: String, completed: Bool) async throws -> ReminderDTO {
-    let reminder = try reminder(withIdentifier: id)
+  func setCompleted(
+    id: String,
+    externalId: String? = nil,
+    completed: Bool
+  ) async throws -> ReminderDTO {
+    let reminder = try reminder(withIdentifier: id, externalId: externalId)
     _ = try writableList(for: nil, fallback: reminder.list)
     reminder.isCompleted = completed
     try save(reminder)
     return try reminderDTO(reminder)
   }
 
-  private func reminder(withIdentifier id: String) throws -> any ReminderRecord {
-    guard let reminder = store.reminder(withIdentifier: id) else {
+  private func reminder(withIdentifier id: String, externalId: String?) throws -> any ReminderRecord {
+    if let reminder = store.reminder(withIdentifier: id) {
+      return reminder
+    }
+    guard let externalId else {
+      throw BridgeFailure(code: .reminderNotFound, message: "Reminder not found.")
+    }
+    let candidates: [any ReminderRecord] = store.calendarItems(
+      withExternalIdentifier: externalId
+    ).compactMap { item -> (any ReminderRecord)? in
+      guard case .reminder(let reminder) = item else { return nil }
+      return reminder
+    }
+    guard candidates.count <= 1 else {
+      throw BridgeFailure(
+        code: .eventKitError,
+        message: "Multiple Reminders share the external identifier."
+      )
+    }
+    guard let reminder = candidates.first else {
       throw BridgeFailure(code: .reminderNotFound, message: "Reminder not found.")
     }
     return reminder
@@ -182,6 +209,7 @@ struct ReminderUpdateRequest {
     }
     return ReminderDTO(
       id: id,
+      externalId: reminder.externalId,
       title: reminder.title,
       list: CalendarDTO(list),
       completed: reminder.isCompleted,

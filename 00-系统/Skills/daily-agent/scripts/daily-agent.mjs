@@ -87,7 +87,14 @@ function dispatch(args) {
     title: args.title, priority: args.priority, due: args.due, tags: csv(args.tags),
     project_id: args["project-id"], status: args.status, review_after: args["review-after"],
     external_ref: args["external-kind"] && args["external-id"]
-      ? { provider: "eventkit", kind: args["external-kind"], id: args["external-id"] }
+      ? {
+        provider: "eventkit",
+        kind: args["external-kind"],
+        id: args["external-id"],
+        ...(args["external-external-id"]
+          ? { external_id: args["external-external-id"] }
+          : {}),
+      }
       : undefined,
   }) };
   if (command === "task-transition") return { task: transitionTask(context, args.id, args.status, {

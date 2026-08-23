@@ -38,6 +38,7 @@ struct ReminderQuery: Equatable {
 
 @MainActor protocol EventRecord: AnyObject {
   var id: String? { get set }
+  var externalId: String? { get }
   var title: String { get set }
   var start: Date { get set }
   var end: Date { get set }
@@ -52,6 +53,7 @@ struct ReminderQuery: Equatable {
 
 @MainActor protocol ReminderRecord: AnyObject {
   var id: String? { get }
+  var externalId: String? { get }
   var title: String { get set }
   var list: EventCalendar? { get set }
   var isCompleted: Bool { get set }
@@ -62,12 +64,18 @@ struct ReminderQuery: Equatable {
   var notes: String? { get set }
 }
 
+enum CalendarItemRecord {
+  case event(any EventRecord)
+  case reminder(any ReminderRecord)
+}
+
 @MainActor protocol EventStoreClient: AnyObject {
   func calendars() throws -> [EventCalendar]
   func calendar(withIdentifier identifier: String) -> EventCalendar?
   func defaultCalendarForNewEvents() -> EventCalendar?
   func events(start: Date, end: Date, calendarIDs: [String]?) throws -> [any EventRecord]
   func event(withIdentifier identifier: String) -> (any EventRecord)?
+  func calendarItems(withExternalIdentifier identifier: String) -> [CalendarItemRecord]
   func makeEvent() -> any EventRecord
   func save(_ event: any EventRecord, span: EventStoreSpan) throws
   func remove(_ event: any EventRecord, span: EventStoreSpan) throws
@@ -83,6 +91,7 @@ struct ReminderQuery: Equatable {
 }
 
 @MainActor extension EventStoreClient {
+  func calendarItems(withExternalIdentifier identifier: String) -> [CalendarItemRecord] { [] }
   func reminderLists() -> [EventCalendar] { [] }
   func reminderList(withIdentifier identifier: String) -> EventCalendar? { nil }
   func defaultReminderList() -> EventCalendar? { nil }
@@ -122,6 +131,18 @@ struct ReminderQuery: Equatable {
 
   func event(withIdentifier identifier: String) -> (any EventRecord)? {
     store.event(withIdentifier: identifier).map { LiveEventRecord($0, store: store) }
+  }
+
+  func calendarItems(withExternalIdentifier identifier: String) -> [CalendarItemRecord] {
+    store.calendarItems(withExternalIdentifier: identifier).compactMap { item in
+      if let event = item as? EKEvent {
+        return .event(LiveEventRecord(event, store: store))
+      }
+      if let reminder = item as? EKReminder {
+        return .reminder(LiveReminderRecord(reminder, store: store))
+      }
+      return nil
+    }
   }
 
   func makeEvent() -> any EventRecord {
@@ -245,6 +266,10 @@ private extension EventStoreSpan {
     set { }
   }
 
+  var externalId: String? {
+    event.calendarItemExternalIdentifier
+  }
+
   var title: String {
     get { event.title ?? "" }
     set { event.title = newValue }
@@ -309,6 +334,10 @@ private extension EventStoreSpan {
 
   var id: String? {
     reminder.calendarItemIdentifier
+  }
+
+  var externalId: String? {
+    reminder.calendarItemExternalIdentifier
   }
 
   var title: String {

@@ -6,9 +6,9 @@
 2. Compute today's `[00:00, next 00:00)` bounds in the machine timezone and convert both bounds to absolute ISO 8601 timestamps.
 3. Through the EventKit Skill, call `calendar.list` with those bounds.
 4. Call `reminder.list` with `status: "incomplete"`, then with `status: "completed"`; keep completed results only when `completionDate` falls inside the local-day bounds.
-5. Build the set of Reminder IDs linked from all loaded local tasks. For every linked ID absent from the incomplete and today-completed list results, call fresh `reminder.get` with that exact ID.
+5. Build the set of linked Reminder locators from all loaded local tasks. Treat a link as present when a fresh DTO matches its local `id` or uniquely matches its optional `external_id`. For every absent link, call fresh `reminder.get` with the exact local `id` and optional `externalId`.
 6. Add successful `reminder.get` DTOs to reconciliation even when they were completed before today. Record an ID as confirmed missing only when its lookup returns `REMINDER_NOT_FOUND`. Any other lookup failure is an unavailable anomaly requiring manual handling; list absence alone is never a broken reference.
-7. Reconcile the combined fresh DTOs and explicit confirmed-missing IDs against local tasks. Use only EventKit Reminder IDs from `external_ref`; never infer a match from a title, and never import an unlinked Apple item.
+7. Reconcile the combined fresh DTOs and explicit confirmed-missing local IDs against local tasks. Match `external_ref.id` first, then uniquely match `external_ref.external_id` to DTO `externalId`. Never infer a match from a title, never choose among duplicate external matches, and never import an unlinked Apple item.
 8. Apply every `complete` result with `task-transition --vault {VAULT} --id TASK_ID --status completed --completed-at COMPLETION_DATE`. Automatic completion is limited to local `inbox`, `active`, and `waiting` tasks; `cancelled` tasks stay cancelled.
 9. If a completed Reminder lacks `completionDate`, report `MISSING_COMPLETION_DATE` as an anomaly requiring manual handling and do not run `task-transition`.
 10. Ask before applying every local reopen with `task-transition --vault {VAULT} --id TASK_ID --status active`. A reopened Apple Reminder is evidence for a confirmation, not authorization to mutate the local task.

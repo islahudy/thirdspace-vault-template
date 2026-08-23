@@ -17,6 +17,20 @@ import Testing
     #expect(result.map(\.title) == ["09:00", "11:00"])
   }
 
+  @Test func eventDTOIncludesExternalIdentifierWhenAvailable() throws {
+    let store = FakeEventStore(events: [.at("09:00", externalId: "EXT-EVT-1")])
+
+    let result = try CalendarService(store: store).list(
+      .init(
+        start: instant("2026-08-22T00:00:00+08:00"),
+        end: instant("2026-08-23T00:00:00+08:00"),
+        calendarIDs: nil
+      )
+    )
+
+    #expect(result.first?.externalId == "EXT-EVT-1")
+  }
+
   @Test func createUsesRequestedWritableCalendar() throws {
     let work = EventCalendar(id: "work", title: "Work", isWritable: true)
     let store = FakeEventStore(calendars: [work])
@@ -70,16 +84,64 @@ import Testing
   }
 
   @Test func updateFetchesTheEventByIdentifier() throws {
-    let event = FakeEvent.at("09:00", id: "EVT-1")
+    let event = FakeEvent.at("09:00", id: "EVT-1", externalId: "EXT-EVT-1")
     let store = FakeEventStore(events: [event])
 
     let result = try CalendarService(store: store).update(
       id: "EVT-1",
+      externalId: "EXT-EVT-1",
       request: .init(title: "Updated")
     )
 
     #expect(store.requestedEventIDs == ["EVT-1"])
+    #expect(store.requestedExternalIDs.isEmpty)
     #expect(result.title == "Updated")
+  }
+
+  @Test func staleIdentifierFallsBackToOneExternalEvent() throws {
+    let event = FakeEvent.at("09:00", id: "EVT-NEW", externalId: "EXT-EVT-1")
+    let store = FakeEventStore(events: [event])
+
+    let result = try CalendarService(store: store).update(
+      id: "EVT-STALE",
+      externalId: "EXT-EVT-1",
+      request: .init(title: "Updated")
+    )
+
+    #expect(store.requestedEventIDs == ["EVT-STALE"])
+    #expect(store.requestedExternalIDs == ["EXT-EVT-1"])
+    #expect(result.id == "EVT-NEW")
+    #expect(store.savedEvents.map(\.id) == ["EVT-NEW"])
+  }
+
+  @Test func zeroExternalEventMatchesRetainNotFound() throws {
+    let store = FakeEventStore()
+
+    let failure = try bridgeFailure {
+      _ = try CalendarService(store: store).get(id: "EVT-STALE", externalId: "EXT-MISSING")
+    }
+
+    #expect(failure.error.code == .eventNotFound)
+    #expect(store.requestedExternalIDs == ["EXT-MISSING"])
+  }
+
+  @Test func multipleExternalEventMatchesFailWithoutMutation() throws {
+    let store = FakeEventStore(events: [
+      .at("09:00", id: "EVT-A", externalId: "EXT-DUPLICATE"),
+      .at("10:00", id: "EVT-B", externalId: "EXT-DUPLICATE"),
+    ])
+
+    let failure = try bridgeFailure {
+      _ = try CalendarService(store: store).update(
+        id: "EVT-STALE",
+        externalId: "EXT-DUPLICATE",
+        request: .init(title: "Must not change")
+      )
+    }
+
+    #expect(failure.error.code == .eventKitError)
+    #expect(failure.error.message == "Multiple Calendar events share the external identifier.")
+    #expect(store.savedEvents.isEmpty)
   }
 
   @Test func deleteFetchesTheEventByIdentifier() throws {
@@ -162,6 +224,7 @@ import Testing
   var calendarsByID: [String: EventCalendar]
   let defaultCalendarID: String?
   private(set) var requestedEventIDs: [String] = []
+  private(set) var requestedExternalIDs: [String] = []
   private(set) var defaultCalendarRequests = 0
   private(set) var savedEvents: [(id: String, span: EventStoreSpan)] = []
   private(set) var removedEvents: [(id: String, span: EventStoreSpan)] = []
@@ -199,9 +262,15 @@ import Testing
     return events.first { $0.id == identifier }
   }
 
+  func calendarItems(withExternalIdentifier identifier: String) -> [CalendarItemRecord] {
+    requestedExternalIDs.append(identifier)
+    return events.filter { $0.externalId == identifier }.map(CalendarItemRecord.event)
+  }
+
   func makeEvent() -> any EventRecord {
     FakeEvent(
       id: nil,
+      externalId: nil,
       title: "",
       start: Date.distantPast,
       end: Date.distantFuture,
@@ -231,6 +300,7 @@ import Testing
 
 @MainActor private final class FakeEvent: EventRecord {
   var id: String?
+  let externalId: String?
   var title: String
   var start: Date
   var end: Date
@@ -244,6 +314,7 @@ import Testing
 
   init(
     id: String?,
+    externalId: String?,
     title: String,
     start: Date,
     end: Date,
@@ -256,6 +327,7 @@ import Testing
     hasRecurrenceRules: Bool
   ) {
     self.id = id
+    self.externalId = externalId
     self.title = title
     self.start = start
     self.end = end
@@ -271,11 +343,13 @@ import Testing
   static func at(
     _ hourAndMinute: String,
     id: String? = nil,
+    externalId: String? = nil,
     hasRecurrenceRules: Bool = false
   ) -> FakeEvent {
     let start = instant("2026-08-22T\(hourAndMinute):00+08:00")
     return .init(
       id: id ?? "EVT-\(hourAndMinute)",
+      externalId: externalId,
       title: hourAndMinute,
       start: start,
       end: start.addingTimeInterval(60 * 60),

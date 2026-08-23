@@ -14,6 +14,7 @@ struct CalendarDTO: Codable, Equatable {
 
 struct EventDTO: Codable, Equatable {
   let id: String
+  let externalId: String?
   let title: String
   let start: String
   let end: String
@@ -126,8 +127,8 @@ struct CalendarUpdateRequest {
       .map(eventDTO)
   }
 
-  func get(id: String) throws -> EventDTO {
-    try eventDTO(event(withIdentifier: id))
+  func get(id: String, externalId: String? = nil) throws -> EventDTO {
+    try eventDTO(event(withIdentifier: id, externalId: externalId))
   }
 
   func create(_ request: CalendarCreateRequest) throws -> EventDTO {
@@ -147,8 +148,12 @@ struct CalendarUpdateRequest {
     return try eventDTO(event)
   }
 
-  func update(id: String, request: CalendarUpdateRequest) throws -> EventDTO {
-    let event = try event(withIdentifier: id)
+  func update(
+    id: String,
+    externalId: String? = nil,
+    request: CalendarUpdateRequest
+  ) throws -> EventDTO {
+    let event = try event(withIdentifier: id, externalId: externalId)
     let start = request.start ?? event.start
     let end = request.end ?? event.end
     try validateDateRange(start: start, end: end)
@@ -168,14 +173,32 @@ struct CalendarUpdateRequest {
     return try eventDTO(event)
   }
 
-  func delete(id: String, span: RecurrenceSpan?) throws {
-    let event = try event(withIdentifier: id)
+  func delete(id: String, externalId: String? = nil, span: RecurrenceSpan?) throws {
+    let event = try event(withIdentifier: id, externalId: externalId)
     _ = try writableCalendar(for: nil, fallback: event.calendar)
     try remove(event, span: mutationSpan(for: event, requested: span))
   }
 
-  private func event(withIdentifier id: String) throws -> any EventRecord {
-    guard let event = store.event(withIdentifier: id) else {
+  private func event(withIdentifier id: String, externalId: String?) throws -> any EventRecord {
+    if let event = store.event(withIdentifier: id) {
+      return event
+    }
+    guard let externalId else {
+      throw BridgeFailure(code: .eventNotFound, message: "Calendar event not found.")
+    }
+    let candidates: [any EventRecord] = store.calendarItems(
+      withExternalIdentifier: externalId
+    ).compactMap { item -> (any EventRecord)? in
+      guard case .event(let event) = item else { return nil }
+      return event
+    }
+    guard candidates.count <= 1 else {
+      throw BridgeFailure(
+        code: .eventKitError,
+        message: "Multiple Calendar events share the external identifier."
+      )
+    }
+    guard let event = candidates.first else {
       throw BridgeFailure(code: .eventNotFound, message: "Calendar event not found.")
     }
     return event
@@ -247,6 +270,7 @@ struct CalendarUpdateRequest {
     }
     return EventDTO(
       id: id,
+      externalId: event.externalId,
       title: event.title,
       start: DateCodec.formatInstant(event.start),
       end: DateCodec.formatInstant(event.end),
