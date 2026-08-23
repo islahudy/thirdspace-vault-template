@@ -15,6 +15,7 @@ import Foundation
 
   func dispatch(_ request: BridgeRequest) async -> BridgeResponse {
     do {
+      let values = try params(request.params)
       switch request.action {
       case "auth.status":
         return .success(permissions.status())
@@ -25,23 +26,21 @@ import Foundation
         return .success(try calendarService.calendars())
       case "calendar.list":
         try requireFullAccess(permissions.status().calendar, resource: "calendar")
-        return .success(try calendarService.list(try calendarListRequest(request.params)))
+        return .success(try calendarService.list(try calendarListRequest(values)))
       case "calendar.get":
         try requireFullAccess(permissions.status().calendar, resource: "calendar")
-        return .success(try calendarService.get(id: try params(request.params).requiredString("id")))
+        return .success(try calendarService.get(id: try values.requiredString("id")))
       case "calendar.create":
         try requireFullAccess(permissions.status().calendar, resource: "calendar")
-        return .success(try calendarService.create(try calendarCreateRequest(request.params)))
+        return .success(try calendarService.create(try calendarCreateRequest(values)))
       case "calendar.update":
         try requireFullAccess(permissions.status().calendar, resource: "calendar")
-        let values = try params(request.params)
         return .success(try calendarService.update(
           id: try values.requiredString("id"),
           request: try calendarUpdateRequest(values)
         ))
       case "calendar.delete":
         try requireFullAccess(permissions.status().calendar, resource: "calendar")
-        let values = try params(request.params)
         let span = try values.optionalEnum("span", as: RecurrenceSpan.self)
         try calendarService.delete(id: try values.requiredString("id"), span: span)
         return .success(["deleted": true])
@@ -50,34 +49,33 @@ import Foundation
         return .success(store.reminderLists().map(CalendarDTO.init))
       case "reminder.list":
         try requireFullAccess(permissions.status().reminders, resource: "reminders")
-        return .success(try await reminderService.list(try reminderListRequest(request.params)))
+        return .success(try await reminderService.list(try reminderListRequest(values)))
       case "reminder.get":
         try requireFullAccess(permissions.status().reminders, resource: "reminders")
-        return .success(try await reminderService.get(id: try params(request.params).requiredString("id")))
+        return .success(try await reminderService.get(id: try values.requiredString("id")))
       case "reminder.create":
         try requireFullAccess(permissions.status().reminders, resource: "reminders")
-        return .success(try await reminderService.create(try reminderCreateRequest(request.params)))
+        return .success(try await reminderService.create(try reminderCreateRequest(values)))
       case "reminder.update":
         try requireFullAccess(permissions.status().reminders, resource: "reminders")
-        let values = try params(request.params)
         return .success(try await reminderService.update(
           id: try values.requiredString("id"),
           request: try reminderUpdateRequest(values)
         ))
       case "reminder.delete":
         try requireFullAccess(permissions.status().reminders, resource: "reminders")
-        try await reminderService.delete(id: try params(request.params).requiredString("id"))
+        try await reminderService.delete(id: try values.requiredString("id"))
         return .success(["deleted": true])
       case "reminder.complete":
         try requireFullAccess(permissions.status().reminders, resource: "reminders")
         return .success(try await reminderService.setCompleted(
-          id: try params(request.params).requiredString("id"),
+          id: try values.requiredString("id"),
           completed: true
         ))
       case "reminder.reopen":
         try requireFullAccess(permissions.status().reminders, resource: "reminders")
         return .success(try await reminderService.setCompleted(
-          id: try params(request.params).requiredString("id"),
+          id: try values.requiredString("id"),
           completed: false
         ))
       default:
@@ -99,8 +97,7 @@ import Foundation
     }
   }
 
-  private func calendarListRequest(_ value: JSONValue?) throws -> CalendarListRequest {
-    let values = try params(value)
+  private func calendarListRequest(_ values: RequestParameters) throws -> CalendarListRequest {
     return try .init(
       start: DateCodec.parseInstant(values.requiredString("start")),
       end: DateCodec.parseInstant(values.requiredString("end")),
@@ -108,8 +105,7 @@ import Foundation
     )
   }
 
-  private func calendarCreateRequest(_ value: JSONValue?) throws -> CalendarCreateRequest {
-    let values = try params(value)
+  private func calendarCreateRequest(_ values: RequestParameters) throws -> CalendarCreateRequest {
     return try .init(
       title: values.requiredString("title"),
       start: DateCodec.parseInstant(values.requiredString("start")),
@@ -119,7 +115,7 @@ import Foundation
       location: values.optionalString("location"),
       notes: values.optionalString("notes"),
       url: values.optionalURL("url"),
-      availability: values.optionalString("availability") ?? "busy"
+      availability: values.optionalEnum("availability", as: EventAvailability.self) ?? .busy
     )
   }
 
@@ -133,21 +129,19 @@ import Foundation
       location: values.optionalString("location"),
       notes: values.optionalString("notes"),
       url: values.optionalURL("url"),
-      availability: values.optionalString("availability"),
+      availability: values.optionalEnum("availability", as: EventAvailability.self),
       span: values.optionalEnum("span", as: RecurrenceSpan.self)
     )
   }
 
-  private func reminderListRequest(_ value: JSONValue?) throws -> ReminderListRequest {
-    let values = try params(value)
+  private func reminderListRequest(_ values: RequestParameters) throws -> ReminderListRequest {
     return try .init(
       status: values.optionalEnum("status", as: ReminderStatus.self) ?? .all,
       listIDs: values.optionalStrings("listIDs")
     )
   }
 
-  private func reminderCreateRequest(_ value: JSONValue?) throws -> ReminderCreateRequest {
-    let values = try params(value)
+  private func reminderCreateRequest(_ values: RequestParameters) throws -> ReminderCreateRequest {
     return try .init(
       title: values.requiredString("title"),
       listID: values.optionalString("listID"),
@@ -171,8 +165,6 @@ import Foundation
 
   private func params(_ value: JSONValue?) throws -> RequestParameters {
     switch value {
-    case nil, .null:
-      return .init(values: [:])
     case .object(let values):
       return .init(values: values)
     default:

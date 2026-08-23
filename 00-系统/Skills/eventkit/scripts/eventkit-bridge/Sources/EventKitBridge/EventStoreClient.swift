@@ -12,6 +12,14 @@ enum EventStoreSpan: String, Codable, Equatable {
   case futureEvents
 }
 
+enum EventAvailability: String, Codable, Equatable, Sendable {
+  case notSupported
+  case free
+  case busy
+  case tentative
+  case unavailable
+}
+
 enum ReminderStatus: String, Codable, Equatable {
   case all
   case incomplete
@@ -38,7 +46,7 @@ struct ReminderQuery: Equatable {
   var location: String? { get set }
   var notes: String? { get set }
   var url: URL? { get set }
-  var availability: String { get set }
+  var availability: EventAvailability { get set }
   var hasRecurrenceRules: Bool { get }
 }
 
@@ -280,7 +288,7 @@ private extension EventStoreSpan {
     set { event.url = newValue }
   }
 
-  var availability: String {
+  var availability: EventAvailability {
     get { event.availability.bridgeValue }
     set { event.availability = EKEventAvailability(bridgeValue: newValue) }
   }
@@ -355,24 +363,24 @@ private extension EventStoreSpan {
 }
 
 private extension EKEventAvailability {
-  var bridgeValue: String {
+  var bridgeValue: EventAvailability {
     switch self {
-    case .notSupported: "notSupported"
-    case .free: "free"
-    case .busy: "busy"
-    case .tentative: "tentative"
-    case .unavailable: "unavailable"
-    @unknown default: "notSupported"
+    case .notSupported: .notSupported
+    case .free: .free
+    case .busy: .busy
+    case .tentative: .tentative
+    case .unavailable: .unavailable
+    @unknown default: .notSupported
     }
   }
 
-  init(bridgeValue: String) {
+  init(bridgeValue: EventAvailability) {
     switch bridgeValue {
-    case "free": self = .free
-    case "tentative": self = .tentative
-    case "unavailable": self = .unavailable
-    case "notSupported": self = .notSupported
-    default: self = .busy
+    case .notSupported: self = .notSupported
+    case .free: self = .free
+    case .busy: self = .busy
+    case .tentative: self = .tentative
+    case .unavailable: self = .unavailable
     }
   }
 }

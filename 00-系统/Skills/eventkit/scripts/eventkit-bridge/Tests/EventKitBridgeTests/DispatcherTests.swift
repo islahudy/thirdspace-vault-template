@@ -52,6 +52,89 @@ import Testing
     #expect(try errorCode(response) == "INVALID_REQUEST")
   }
 
+  @Test func everySupportedActionRejectsNonObjectParams() async throws {
+    let actions = [
+      "auth.status", "auth.request",
+      "calendar.calendars", "calendar.list", "calendar.get", "calendar.create",
+      "calendar.update", "calendar.delete",
+      "reminder.lists", "reminder.list", "reminder.get", "reminder.create",
+      "reminder.update", "reminder.delete", "reminder.complete", "reminder.reopen",
+    ]
+
+    for action in actions {
+      let dispatcher = BridgeDispatcher(store: FakeDispatcherStore(), permissions: FakePermissionClient())
+
+      let response = await dispatcher.dispatch(.init(action: action, params: .array([])))
+
+      #expect(try errorCode(response) == "INVALID_REQUEST", "Expected \(action) to validate params")
+    }
+  }
+
+  @Test func malformedAuthRequestParamsDoNotRequestPermission() async throws {
+    let permissions = FakePermissionClient()
+    let dispatcher = BridgeDispatcher(store: FakeDispatcherStore(), permissions: permissions)
+
+    let response = await dispatcher.dispatch(.init(action: "auth.request", params: .string("bad")))
+
+    #expect(try errorCode(response) == "INVALID_REQUEST")
+    #expect(permissions.requestCount == 0)
+  }
+
+  @Test func calendarCreateDecodesEverySupportedAvailability() async throws {
+    let supportedValues = ["notSupported", "free", "busy", "tentative", "unavailable"]
+
+    for availability in supportedValues {
+      let store = FakeDispatcherStore()
+      let dispatcher = BridgeDispatcher(store: store, permissions: FakePermissionClient())
+
+      let response = await dispatcher.dispatch(request("calendar.create", [
+        "title": .string("Planning"),
+        "start": .string("2026-08-23T09:00:00+08:00"),
+        "end": .string("2026-08-23T10:00:00+08:00"),
+        "availability": .string(availability),
+      ]))
+      let object = try responseObject(response)
+
+      #expect(object["success"] as? Bool == true)
+      #expect((object["data"] as? [String: Any])?["availability"] as? String == availability)
+      #expect(store.savedEventAvailabilities == [availability])
+    }
+  }
+
+  @Test func calendarUpdateDecodesSupportedAvailability() async throws {
+    let store = FakeDispatcherStore()
+    let dispatcher = BridgeDispatcher(store: store, permissions: FakePermissionClient())
+
+    let response = await dispatcher.dispatch(request("calendar.update", [
+      "id": .string("EVT-1"),
+      "availability": .string("tentative"),
+    ]))
+    let object = try responseObject(response)
+
+    #expect((object["data"] as? [String: Any])?["availability"] as? String == "tentative")
+    #expect(store.savedEventAvailabilities == ["tentative"])
+  }
+
+  @Test func calendarAvailabilityTypoReturnsInvalidRequestWithoutSaving() async throws {
+    for action in ["calendar.create", "calendar.update"] {
+      let store = FakeDispatcherStore()
+      let dispatcher = BridgeDispatcher(store: store, permissions: FakePermissionClient())
+      var values: [String: JSONValue] = ["availability": .string("bsy")]
+      if action == "calendar.create" {
+        values["title"] = .string("Planning")
+        values["start"] = .string("2026-08-23T09:00:00+08:00")
+        values["end"] = .string("2026-08-23T10:00:00+08:00")
+      } else {
+        values["id"] = .string("EVT-1")
+      }
+
+      let response = await dispatcher.dispatch(request(action, values))
+
+      #expect(try errorCode(response) == "INVALID_REQUEST")
+      #expect(store.savedEventAvailabilities.isEmpty)
+    }
+  }
+
   @Test func permissionDenialDoesNotRequestAccess() async throws {
     let permissions = FakePermissionClient(
       status: .init(calendar: .denied, reminders: .fullAccess)
@@ -169,6 +252,7 @@ private func errorCode(_ response: BridgeResponse) throws -> String? {
   private lazy var event = FakeDispatcherEvent(calendar: calendar)
   private lazy var reminder = FakeDispatcherReminder(list: reminderList)
   private(set) var calendarReadCount = 0
+  private(set) var savedEventAvailabilities: [String] = []
 
   func calendars() throws -> [EventCalendar] {
     calendarReadCount += 1
@@ -193,7 +277,9 @@ private func errorCode(_ response: BridgeResponse) throws -> String? {
     FakeDispatcherEvent(id: "EVT-NEW", calendar: calendar)
   }
 
-  func save(_ event: any EventRecord, span: EventStoreSpan) throws {}
+  func save(_ event: any EventRecord, span: EventStoreSpan) throws {
+    savedEventAvailabilities.append(event.availability.rawValue)
+  }
   func remove(_ event: any EventRecord, span: EventStoreSpan) throws {}
 
   func reminderLists() -> [EventCalendar] { [reminderList] }
@@ -230,7 +316,7 @@ private func errorCode(_ response: BridgeResponse) throws -> String? {
   var location: String?
   var notes: String?
   var url: URL?
-  var availability = "busy"
+  var availability: EventAvailability = .busy
   let hasRecurrenceRules = false
 
   init(id: String = "EVT-1", calendar: EventCalendar) {

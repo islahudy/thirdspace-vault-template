@@ -210,7 +210,7 @@ import Testing
       location: nil,
       notes: nil,
       url: nil,
-      availability: "busy",
+      availability: .busy,
       hasRecurrenceRules: false
     )
   }
@@ -239,7 +239,7 @@ import Testing
   var location: String?
   var notes: String?
   var url: URL?
-  var availability: String
+  var availability: EventAvailability
   let hasRecurrenceRules: Bool
 
   init(
@@ -252,7 +252,7 @@ import Testing
     location: String?,
     notes: String?,
     url: URL?,
-    availability: String,
+    availability: EventAvailability,
     hasRecurrenceRules: Bool
   ) {
     self.id = id
@@ -284,7 +284,7 @@ import Testing
       location: nil,
       notes: nil,
       url: nil,
-      availability: "busy",
+      availability: .busy,
       hasRecurrenceRules: hasRecurrenceRules
     )
   }

@@ -41,7 +41,7 @@ struct CalendarCreateRequest {
   let location: String?
   let notes: String?
   let url: URL?
-  let availability: String
+  let availability: EventAvailability
 
   init(
     title: String,
@@ -52,7 +52,7 @@ struct CalendarCreateRequest {
     location: String? = nil,
     notes: String? = nil,
     url: URL? = nil,
-    availability: String = "busy"
+    availability: EventAvailability = .busy
   ) {
     self.title = title
     self.start = start
@@ -80,7 +80,7 @@ struct CalendarUpdateRequest {
   let location: String?
   let notes: String?
   let url: URL?
-  let availability: String?
+  let availability: EventAvailability?
   let span: RecurrenceSpan?
 
   init(
@@ -92,7 +92,7 @@ struct CalendarUpdateRequest {
     location: String? = nil,
     notes: String? = nil,
     url: URL? = nil,
-    availability: String? = nil,
+    availability: EventAvailability? = nil,
     span: RecurrenceSpan? = nil
   ) {
     self.title = title
@@ -255,7 +255,7 @@ struct CalendarUpdateRequest {
       location: event.location,
       notes: event.notes,
       url: event.url?.absoluteString,
-      availability: event.availability,
+      availability: event.availability.rawValue,
       recurring: event.hasRecurrenceRules
     )
   }
