@@ -233,16 +233,56 @@ test("reopened reminder requires confirmation", () => {
   assert.deepEqual(result.reopenConfirmations.map((item) => item.taskId), ["task-1"]);
 });
 
-test("broken EventKit reminder references are reported", () => {
-  const result = classifyReminderUpdates(
-    [{ id: "task-1", status: "active", external_ref: {
-      provider: "eventkit", kind: "reminder", id: "REM-MISSING",
-    } }],
-    [{ id: "REM-OTHER", completed: false, completionDate: null }],
+test("only confirmed missing reminders are reported as broken", () => {
+  const task = { id: "task-1", status: "active", external_ref: {
+    provider: "eventkit", kind: "reminder", id: "REM-MISSING",
+  } };
+  const merelyAbsent = classifyReminderUpdates([task], []);
+  const confirmedMissing = classifyReminderUpdates(
+    [task], [], { confirmedMissingReminderIds: ["REM-MISSING"] },
   );
-  assert.deepEqual(result.brokenRefs, [{
+  assert.deepEqual(merelyAbsent.brokenRefs, []);
+  assert.deepEqual(confirmedMissing.brokenRefs, [{
     taskId: "task-1", reminderId: "REM-MISSING",
   }]);
+});
+
+test("older completed reminder lookup reconciles after absent list result", () => {
+  const task = { id: "task-1", status: "active", external_ref: {
+    provider: "eventkit", kind: "reminder", id: "REM-OLD",
+  } };
+  const beforeLookup = classifyReminderUpdates([task], []);
+  const afterLookup = classifyReminderUpdates(
+    [task],
+    [{ id: "REM-OLD", completed: true, completionDate: "2026-08-20T08:30:00+08:00" }],
+  );
+  assert.deepEqual(beforeLookup.brokenRefs, []);
+  assert.deepEqual(afterLookup.complete, [{
+    taskId: "task-1", completedAt: "2026-08-20T08:30:00+08:00",
+  }]);
+});
+
+test("completed reminder without completion date requires manual handling", () => {
+  const result = classifyReminderUpdates(
+    [{ id: "task-1", status: "active", external_ref: {
+      provider: "eventkit", kind: "reminder", id: "REM-1",
+    } }],
+    [{ id: "REM-1", completed: true }],
+  );
+  assert.deepEqual(result.complete, []);
+  assert.deepEqual(result.anomalies, [{
+    taskId: "task-1", reminderId: "REM-1", code: "MISSING_COMPLETION_DATE",
+  }]);
+});
+
+test("cancelled task is not auto-completed from linked reminder", () => {
+  const result = classifyReminderUpdates(
+    [{ id: "task-1", status: "cancelled", external_ref: {
+      provider: "eventkit", kind: "reminder", id: "REM-1",
+    } }],
+    [{ id: "REM-1", completed: true, completionDate: "2026-08-22T08:30:00+08:00" }],
+  );
+  assert.deepEqual(result.complete, []);
 });
 
 test("unlinked Apple reminders are never imported", () => {
@@ -262,7 +302,7 @@ test("unlinked Apple reminders are never imported", () => {
     }],
   );
   assert.deepEqual(result, {
-    complete: [], reopenConfirmations: [], brokenRefs: [],
+    complete: [], reopenConfirmations: [], brokenRefs: [], anomalies: [],
   });
 });
 

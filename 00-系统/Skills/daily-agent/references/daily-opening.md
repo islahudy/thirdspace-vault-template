@@ -6,12 +6,15 @@
 2. Compute today's `[00:00, next 00:00)` bounds in the machine timezone and convert both bounds to absolute ISO 8601 timestamps.
 3. Through the EventKit Skill, call `calendar.list` with those bounds.
 4. Call `reminder.list` with `status: "incomplete"`, then with `status: "completed"`; keep completed results only when `completionDate` falls inside the local-day bounds.
-5. Reconcile the two fresh Reminder sets against the loaded local tasks. Use only EventKit Reminder IDs from `external_ref`; never infer a match from a title, and never import an unlinked Apple item.
-6. Apply every `complete` result with `task-transition --vault {VAULT} --id TASK_ID --status completed --completed-at COMPLETION_DATE`.
-7. Ask before applying every local reopen with `task-transition --vault {VAULT} --id TASK_ID --status active`. A reopened Apple Reminder is evidence for a confirmation, not authorization to mutate the local task.
-8. Report every broken Reminder reference by local task ID and Reminder ID. Do not repair it, search by title, or create a replacement.
-9. Present local task groups, today's Calendar events, and Reminders before asking the user to choose today's 1–3 focus tasks.
-10. Continue the local status, reading, and today-planning dialogue, then call `opening-complete` only after focus selection.
+5. Build the set of Reminder IDs linked from all loaded local tasks. For every linked ID absent from the incomplete and today-completed list results, call fresh `reminder.get` with that exact ID.
+6. Add successful `reminder.get` DTOs to reconciliation even when they were completed before today. Record an ID as confirmed missing only when its lookup returns `REMINDER_NOT_FOUND`. Any other lookup failure is an unavailable anomaly requiring manual handling; list absence alone is never a broken reference.
+7. Reconcile the combined fresh DTOs and explicit confirmed-missing IDs against local tasks. Use only EventKit Reminder IDs from `external_ref`; never infer a match from a title, and never import an unlinked Apple item.
+8. Apply every `complete` result with `task-transition --vault {VAULT} --id TASK_ID --status completed --completed-at COMPLETION_DATE`. Automatic completion is limited to local `inbox`, `active`, and `waiting` tasks; `cancelled` tasks stay cancelled.
+9. If a completed Reminder lacks `completionDate`, report `MISSING_COMPLETION_DATE` as an anomaly requiring manual handling and do not run `task-transition`.
+10. Ask before applying every local reopen with `task-transition --vault {VAULT} --id TASK_ID --status active`. A reopened Apple Reminder is evidence for a confirmation, not authorization to mutate the local task.
+11. Report confirmed broken references and anomalies by local task ID and Reminder ID. Do not repair them, search by title, create replacements, or mutate their local tasks.
+12. Present local task groups, today's Calendar events, and Reminders before asking the user to choose today's 1–3 focus tasks.
+13. Continue the local status, reading, and today-planning dialogue, then call `opening-complete` only after focus selection.
 
 An ordinary `today` flow never calls `auth.request`, including after `PERMISSION_DENIED`. If Calendar or either Reminder query fails, label that source unavailable and continue the local Daily Agent flow. A Calendar failure does not suppress fresh Reminders, and a Reminders failure does not suppress fresh Calendar events.
 
@@ -21,12 +24,12 @@ Present a compact briefing in this order:
 
 1. Overdue and due within 24 hours.
 2. Other carryovers, waiting reviews, and stale items.
-3. Automatic linked-Reminder completions, pending local-reopen confirmations, and broken references.
+3. Automatic linked-Reminder completions, pending local-reopen confirmations, confirmed broken references, and manual-handling anomalies.
 4. Today's Calendar events and Reminders, or a source-specific unavailable label.
 5. Reading additions, processed items, backlog, and uncertain candidates.
 6. One question asking what older work changed status.
 
-Apart from the linked-Reminder completion rule above, do not silently infer completion. Apply only the user's stated status changes. Ask again before cancellation.
+Apart from eligible linked-Reminder completions with a valid `completionDate`, do not silently infer completion. Apply only the user's stated status changes. Ask again before cancellation.
 
 ## Today Planning
 

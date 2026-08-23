@@ -23,14 +23,17 @@ Run this sequence in order:
 1. Call local `opening`.
 2. Using the machine's local timezone, calculate `[00:00, next 00:00)` as absolute timestamps and call EventKit `calendar.list` for that interval.
 3. Call EventKit `reminder.list` once with `status: "incomplete"` and once with `status: "completed"`; from the completed response retain only Reminders whose `completionDate` is inside the same local-day interval.
-4. Reconcile the freshly fetched Reminders with the loaded local tasks through `classifyReminderUpdates`. Match only `external_ref.id`; never match by title or import an unlinked Apple item.
-5. Apply each `complete` entry with `task-transition --status completed --completed-at ...`. For every `reopenConfirmations` entry, ask before transitioning the local task back to `active`. Report `brokenRefs` without repairing or relinking them.
-6. Present overdue, due-soon, upcoming, stale, waiting, and active local items, then today's Calendar events and Reminders (or a clear unavailable label), before asking about today's focus.
-7. Ask which older local items are completed, waiting, or cancelled, and apply confirmed transitions. Cancellation always requires explicit confirmation.
-8. Present reading additions, processed items, and candidates discovered by the opening scan.
-9. Ask what the user will advance today; create or update tasks from their answer.
-10. Ask the user to select 1–3 active focus tasks.
-11. Only after selection, call `opening-complete`.
+4. Collect every EventKit Reminder ID linked from the loaded local tasks. For each linked ID absent from the incomplete and today-completed list results, call fresh `reminder.get` by that ID.
+5. Add every successful `reminder.get` DTO to reconciliation, including a Reminder completed before today. Only a `REMINDER_NOT_FOUND` response confirms a missing ID; any other lookup failure is an unavailable anomaly for manual handling, not a broken reference.
+6. Call `classifyReminderUpdates` with the fresh Reminder DTOs and the explicitly confirmed-missing IDs. Match only `external_ref.id`; never match by title or import an unlinked Apple item.
+7. Apply each `complete` entry with `task-transition --status completed --completed-at ...`; only local `inbox`, `active`, or `waiting` tasks are eligible. Never auto-complete a `cancelled` task. A completed Reminder without `completionDate` is an anomaly for manual handling and must not change local state.
+8. For every `reopenConfirmations` entry, ask before transitioning the local task back to `active`. Report `brokenRefs` and `anomalies` without repairing, relinking, or mutating them.
+9. Present overdue, due-soon, upcoming, stale, waiting, and active local items, then today's Calendar events and Reminders (or a clear unavailable label), before asking about today's focus.
+10. Ask which older local items are completed, waiting, or cancelled, and apply confirmed transitions. Cancellation always requires explicit confirmation.
+11. Present reading additions, processed items, and candidates discovered by the opening scan.
+12. Ask what the user will advance today; create or update tasks from their answer.
+13. Ask the user to select 1–3 active focus tasks.
+14. Only after selection, call `opening-complete`.
 
 An ordinary `today`/daily-opening flow never calls EventKit `auth.request`. If Calendar or Reminders access fails, label that source unavailable and continue the complete local flow; do not let EventKit failure block `opening` or `opening-complete`.
 
@@ -43,6 +46,7 @@ If `opening` returns `required: false`, do not repeat the dialogue unless the us
 | Create/update tasks, confirm completion, enroll explicit `paper/blog`, write plan snapshot | Automatic |
 | Complete a linked local task from a freshly completed Reminder | Automatic |
 | Reopen a local-completed task after its linked Reminder was reopened | Ask first |
+| Mark a merely list-absent Reminder as broken, auto-complete a cancelled task, or use a missing completion timestamp | Never; resolve by ID and report unresolved anomalies for manual handling |
 | Detect an uncertain reading candidate | Automatic discovery only |
 | Accept/reject a candidate, cancel a task, change project stage, move/archive/publish | Ask first |
 | Request Calendar or Reminders authorization during ordinary `today` | Never; report the source unavailable and continue locally |
@@ -98,6 +102,8 @@ All commands return one JSON value. On error, stop and report stderr; do not rep
 - Treating the worklog snapshot as the current task list.
 - Completing the opening before the user selects focus items.
 - Starting EventKit from `daily-agent.mjs`, matching by title, or importing unlinked Apple items.
+- Treating absence from filtered list results as `REMINDER_NOT_FOUND` instead of fetching the linked ID.
+- Auto-completing a cancelled task or a Reminder without `completionDate`.
 - Calling `auth.request` during an ordinary `today` flow or stopping local planning when EventKit is unavailable.
 - Accepting an uncertain reading candidate without confirmation.
 - Turning paper reading into ordinary tasks instead of queue items.
