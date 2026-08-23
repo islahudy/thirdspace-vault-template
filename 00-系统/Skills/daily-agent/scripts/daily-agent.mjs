@@ -44,6 +44,22 @@ function csv(value) {
   return value ? String(value).split(",").map((item) => item.trim()).filter(Boolean) : [];
 }
 
+function eventKitExternalRef(args) {
+  const hasKind = Object.hasOwn(args, "external-kind");
+  const hasLocalId = Object.hasOwn(args, "external-id");
+  const hasExternalId = Object.hasOwn(args, "external-external-id");
+  if (!hasKind && !hasLocalId && !hasExternalId) return undefined;
+  if (!hasKind || !hasLocalId) {
+    throw new Error("EventKit locator flags require --external-kind and --external-id together");
+  }
+  return {
+    provider: "eventkit",
+    kind: args["external-kind"],
+    id: args["external-id"],
+    ...(hasExternalId ? { external_id: args["external-external-id"] } : {}),
+  };
+}
+
 function contextFor(args) {
   return {
     vaultRoot: args.vault ? path.resolve(args.vault) : resolveVault(args.cwd),
@@ -86,16 +102,7 @@ function dispatch(args) {
   if (command === "task-add") return { task: createTask(context, {
     title: args.title, priority: args.priority, due: args.due, tags: csv(args.tags),
     project_id: args["project-id"], status: args.status, review_after: args["review-after"],
-    external_ref: args["external-kind"] && args["external-id"]
-      ? {
-        provider: "eventkit",
-        kind: args["external-kind"],
-        id: args["external-id"],
-        ...(args["external-external-id"]
-          ? { external_id: args["external-external-id"] }
-          : {}),
-      }
-      : undefined,
+    external_ref: eventKitExternalRef(args),
   }) };
   if (command === "task-transition") return { task: transitionTask(context, args.id, args.status, {
     confirmed: args.confirmed === true,

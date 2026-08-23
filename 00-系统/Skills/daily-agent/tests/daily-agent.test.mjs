@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 
 import { readState, mutateState } from "../scripts/lib/store.mjs";
 import { appendEvent, makeEventId } from "../scripts/lib/events.mjs";
@@ -61,6 +61,15 @@ function runCli(root, ...args) {
     env: { ...process.env, THIRDSPACE_NOW: "2026-08-22T09:00:00+08:00" },
     cwd: root,
   }));
+}
+
+function runCliFailure(root, ...args) {
+  const cli = path.resolve(path.dirname(decodeURIComponent(new URL(import.meta.url).pathname)), "../scripts/daily-agent.mjs");
+  return spawnSync(process.execPath, [cli, ...args], {
+    encoding: "utf8",
+    env: { ...process.env, THIRDSPACE_NOW: "2026-08-22T09:00:00+08:00" },
+    cwd: root,
+  });
 }
 
 test("state store validates JSON and supported version", () => {
@@ -228,10 +237,34 @@ test("CLI forwards EventKit reference and completion timestamp", () => {
     assert.deepEqual(linked.task.external_ref, {
       provider: "eventkit", kind: "reminder", id: "REM-2", external_id: "EXT-REM-2",
     });
-    const unlinked = runCli(root, "task-add", "--vault", root, "--title", "Unlinked", "--external-kind", "calendar");
+    const unlinked = runCli(root, "task-add", "--vault", root, "--title", "Unlinked");
     assert.equal(unlinked.task.external_ref, undefined);
     const completed = runCli(root, "task-transition", "--vault", root, "--id", linked.task.id, "--status", "completed", "--completed-at", "2026-08-22T08:30:00+08:00");
     assert.equal(completed.task.completed_at, "2026-08-22T08:30:00+08:00");
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("CLI rejects every partial EventKit locator flag combination", () => {
+  const root = fixtureVault();
+  const partialCombinations = [
+    ["kind only", "--external-kind", "reminder"],
+    ["local ID only", "--external-id", "REM-1"],
+    ["external ID only", "--external-external-id", "EXT-REM-1"],
+    ["kind and external ID", "--external-kind", "reminder", "--external-external-id", "EXT-REM-1"],
+    ["local and external IDs", "--external-id", "REM-1", "--external-external-id", "EXT-REM-1"],
+  ];
+  try {
+    for (const [label, ...flags] of partialCombinations) {
+      const result = runCliFailure(
+        root, "task-add", "--vault", root, "--title", `Partial ${label}`, ...flags,
+      );
+      assert.equal(result.status, 1, label);
+      assert.match(result.stderr, /EventKit locator flags require --external-kind and --external-id together/, label);
+    }
+    const tasksFile = path.join(root, ".thirdspace", "data", "daily-agent", "tasks.json");
+    assert.deepEqual(readState(tasksFile, "tasks").tasks, []);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
@@ -266,6 +299,25 @@ test("changed reminder local ID reconciles by linked external ID", () => {
   assert.deepEqual(result.brokenRefs, []);
 });
 
+test("local reminder ID takes precedence over a different external match", () => {
+  const result = classifyReminderUpdates(
+    [{ id: "task-1", status: "active", external_ref: {
+      provider: "eventkit", kind: "reminder", id: "REM-LOCAL", external_id: "EXT-OTHER",
+    } }],
+    [
+      { id: "REM-LOCAL", externalId: "EXT-LOCAL", completed: false },
+      {
+        id: "REM-OTHER", externalId: "EXT-OTHER", completed: true,
+        completionDate: "2026-08-22T08:30:00+08:00",
+      },
+    ],
+  );
+
+  assert.deepEqual(result, {
+    complete: [], reopenConfirmations: [], brokenRefs: [], anomalies: [],
+  });
+});
+
 test("duplicate reminder external IDs do not select a candidate", () => {
   const result = classifyReminderUpdates(
     [{ id: "task-1", status: "active", external_ref: {
@@ -283,7 +335,9 @@ test("duplicate reminder external IDs do not select a candidate", () => {
     ],
   );
 
-  assert.deepEqual(result.complete, []);
+  assert.deepEqual(result, {
+    complete: [], reopenConfirmations: [], brokenRefs: [], anomalies: [],
+  });
 });
 
 test("reopened reminder requires confirmation", () => {

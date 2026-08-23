@@ -91,6 +91,8 @@ node scripts/daily-agent.mjs report-aggregate --vault {VAULT} --kind weekly --da
 node scripts/daily-agent.mjs review-generate --vault {VAULT} --kind weekly --date YYYY-MM-DD --input {REPORT_INPUT_PATH}
 ```
 
+For `task-add`, EventKit locator flags are a group: omit all three for an unlinked task, or supply both `--external-kind` and `--external-id`; `--external-external-id` is optional only when that required pair is present. Any partial combination is invalid and must not create a task.
+
 All commands return one JSON value. On error, stop and report stderr; do not repair or overwrite damaged state.
 
 ## References
