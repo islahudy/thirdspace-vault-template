@@ -169,14 +169,15 @@ struct ReminderQuery: Equatable {
     case .completed:
       predicate = store.predicateForCompletedReminders(withCompletionDateStarting: nil, ending: nil, calendars: calendars)
     }
-    let result = ReminderFetchResult()
-    try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+    let batch: ReminderFetchBatch = try await withCheckedThrowingContinuation { continuation in
       store.fetchReminders(matching: predicate) { reminders in
-        result.reminders = reminders ?? []
-        continuation.resume()
+        let batch = ReminderFetchBatch(reminders)
+        Task { @MainActor in
+          continuation.resume(returning: batch)
+        }
       }
     }
-    return result.reminders.map { LiveReminderRecord($0, store: store) }
+    return batch.reminders.map { LiveReminderRecord($0, store: store) }
   }
 
   func reminder(withIdentifier identifier: String) -> (any ReminderRecord)? {
@@ -379,6 +380,10 @@ private enum LiveEventStoreError: Error {
   case unsupportedRecord
 }
 
-@MainActor private final class ReminderFetchResult {
-  var reminders: [EKReminder] = []
+private struct ReminderFetchBatch: @unchecked Sendable {
+  let reminders: [EKReminder]
+
+  init(_ reminders: [EKReminder]?) {
+    self.reminders = reminders ?? []
+  }
 }
