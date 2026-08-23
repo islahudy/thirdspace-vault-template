@@ -7,6 +7,7 @@ import { execFileSync } from "node:child_process";
 
 import { readState, mutateState } from "../scripts/lib/store.mjs";
 import { appendEvent, makeEventId } from "../scripts/lib/events.mjs";
+import { classifyReminderUpdates } from "../scripts/lib/external-items.mjs";
 import { createTask, listOpeningTasks, registerProject, transitionTask } from "../scripts/lib/tasks.mjs";
 import { confirmReadingCandidate, scanReadingInbox } from "../scripts/lib/reading.mjs";
 import { completeOpening, prepareOpening } from "../scripts/lib/opening.mjs";
@@ -208,6 +209,61 @@ test("CLI forwards EventKit reference and completion timestamp", () => {
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("linked completed reminder proposes local completion", () => {
+  const result = classifyReminderUpdates(
+    [{ id: "task-1", status: "active", external_ref: {
+      provider: "eventkit", kind: "reminder", id: "REM-1",
+    } }],
+    [{ id: "REM-1", completed: true, completionDate: "2026-08-22T08:30:00+08:00" }],
+  );
+  assert.deepEqual(result.complete, [{
+    taskId: "task-1", completedAt: "2026-08-22T08:30:00+08:00",
+  }]);
+});
+
+test("reopened reminder requires confirmation", () => {
+  const result = classifyReminderUpdates(
+    [{ id: "task-1", status: "completed", external_ref: {
+      provider: "eventkit", kind: "reminder", id: "REM-1",
+    } }],
+    [{ id: "REM-1", completed: false, completionDate: null }],
+  );
+  assert.deepEqual(result.reopenConfirmations.map((item) => item.taskId), ["task-1"]);
+});
+
+test("broken EventKit reminder references are reported", () => {
+  const result = classifyReminderUpdates(
+    [{ id: "task-1", status: "active", external_ref: {
+      provider: "eventkit", kind: "reminder", id: "REM-MISSING",
+    } }],
+    [{ id: "REM-OTHER", completed: false, completionDate: null }],
+  );
+  assert.deepEqual(result.brokenRefs, [{
+    taskId: "task-1", reminderId: "REM-MISSING",
+  }]);
+});
+
+test("unlinked Apple reminders are never imported", () => {
+  const result = classifyReminderUpdates(
+    [
+      { id: "task-1", title: "Same title", status: "active" },
+      { id: "task-2", status: "active", external_ref: {
+        provider: "eventkit", kind: "calendar", id: "REM-1",
+      } },
+      { id: "task-3", status: "active", external_ref: {
+        provider: "other", kind: "reminder", id: "REM-1",
+      } },
+    ],
+    [{
+      id: "REM-1", title: "Same title", completed: true,
+      completionDate: "2026-08-22T08:30:00+08:00",
+    }],
+  );
+  assert.deepEqual(result, {
+    complete: [], reopenConfirmations: [], brokenRefs: [],
+  });
 });
 
 test("task opening query assigns each task to one reminder group", () => {

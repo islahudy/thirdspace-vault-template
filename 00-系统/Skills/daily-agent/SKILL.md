@@ -20,23 +20,32 @@ Operate ThirdSpace as a personal research-management assistant. Current state li
 
 Run this sequence in order:
 
-1. Call `opening` and present overdue, due-soon, upcoming, stale, waiting, and active items.
-2. Ask which older items are completed, waiting, or cancelled.
-3. Apply confirmed transitions. Cancellation always requires explicit confirmation.
-4. Present reading additions, processed items, and candidates discovered by the opening scan.
-5. Ask what the user will advance today; create or update tasks from their answer.
-6. Ask the user to select 1–3 active focus tasks.
-7. Only after selection, call `opening-complete`.
+1. Call local `opening`.
+2. Using the machine's local timezone, calculate `[00:00, next 00:00)` as absolute timestamps and call EventKit `calendar.list` for that interval.
+3. Call EventKit `reminder.list` once with `status: "incomplete"` and once with `status: "completed"`; from the completed response retain only Reminders whose `completionDate` is inside the same local-day interval.
+4. Reconcile the freshly fetched Reminders with the loaded local tasks through `classifyReminderUpdates`. Match only `external_ref.id`; never match by title or import an unlinked Apple item.
+5. Apply each `complete` entry with `task-transition --status completed --completed-at ...`. For every `reopenConfirmations` entry, ask before transitioning the local task back to `active`. Report `brokenRefs` without repairing or relinking them.
+6. Present overdue, due-soon, upcoming, stale, waiting, and active local items, then today's Calendar events and Reminders (or a clear unavailable label), before asking about today's focus.
+7. Ask which older local items are completed, waiting, or cancelled, and apply confirmed transitions. Cancellation always requires explicit confirmation.
+8. Present reading additions, processed items, and candidates discovered by the opening scan.
+9. Ask what the user will advance today; create or update tasks from their answer.
+10. Ask the user to select 1–3 active focus tasks.
+11. Only after selection, call `opening-complete`.
 
-If `opening` returns `required: false`, do not repeat the flow unless the user explicitly asks to re-plan; then pass `--force`.
+An ordinary `today`/daily-opening flow never calls EventKit `auth.request`. If Calendar or Reminders access fails, label that source unavailable and continue the complete local flow; do not let EventKit failure block `opening` or `opening-complete`.
+
+If `opening` returns `required: false`, do not repeat the dialogue unless the user explicitly asks to re-plan; then pass `--force`. Any Apple agenda included in the current summary must still come from fresh EventKit reads.
 
 ## Permission Boundary
 
 | Action | Rule |
 |---|---|
 | Create/update tasks, confirm completion, enroll explicit `paper/blog`, write plan snapshot | Automatic |
+| Complete a linked local task from a freshly completed Reminder | Automatic |
+| Reopen a local-completed task after its linked Reminder was reopened | Ask first |
 | Detect an uncertain reading candidate | Automatic discovery only |
 | Accept/reject a candidate, cancel a task, change project stage, move/archive/publish | Ask first |
+| Request Calendar or Reminders authorization during ordinary `today` | Never; report the source unavailable and continue locally |
 | Install or configure remote producers, hooks, event paths, SSH aliases, or remote sources | Never automatic; the user must perform it or explicitly confirm the exact action first |
 | Delete history, rewrite raw events, change Git history, store secrets | Never |
 
@@ -88,6 +97,8 @@ All commands return one JSON value. On error, stop and report stderr; do not rep
 
 - Treating the worklog snapshot as the current task list.
 - Completing the opening before the user selects focus items.
+- Starting EventKit from `daily-agent.mjs`, matching by title, or importing unlinked Apple items.
+- Calling `auth.request` during an ordinary `today` flow or stopping local planning when EventKit is unavailable.
 - Accepting an uncertain reading candidate without confirmation.
 - Turning paper reading into ordinary tasks instead of queue items.
 - Copying project plans into JSON instead of linking `04-项目` Markdown.

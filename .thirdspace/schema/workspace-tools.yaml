@@ -32,6 +32,9 @@ workspace_skills:
       daily_agent:
         skill: daily-agent
         triggers: [今日计划, 遗留事项, 待办, DDL, 阅读积压, 开始今天, 日常管理, 同步远端记录, 生成周报, 生成月报]
+      eventkit:
+        skill: eventkit
+        triggers: [日历, 提醒事项, calendar, reminder, 新增todo, today]
 
   "03-知识":
     primary: workspace-knowledge
