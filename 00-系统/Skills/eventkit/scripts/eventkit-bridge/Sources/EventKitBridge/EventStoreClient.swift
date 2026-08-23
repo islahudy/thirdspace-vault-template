@@ -169,15 +169,16 @@ struct ReminderQuery: Equatable {
     case .completed:
       predicate = store.predicateForCompletedReminders(withCompletionDateStarting: nil, ending: nil, calendars: calendars)
     }
-    let batch: ReminderFetchBatch = try await withCheckedThrowingContinuation { continuation in
+    let result: ReminderFetchResult = try await withCheckedThrowingContinuation { continuation in
       store.fetchReminders(matching: predicate) { reminders in
         let batch = ReminderFetchBatch(reminders)
         Task { @MainActor in
-          continuation.resume(returning: batch)
+          let records = (batch.payload ?? []).map { LiveReminderRecord($0, store: self.store) }
+          continuation.resume(returning: ReminderFetchResult(records: records))
         }
       }
     }
-    return batch.reminders.map { LiveReminderRecord($0, store: store) }
+    return result.records
   }
 
   func reminder(withIdentifier identifier: String) -> (any ReminderRecord)? {
@@ -381,9 +382,17 @@ private enum LiveEventStoreError: Error {
 }
 
 private struct ReminderFetchBatch: @unchecked Sendable {
-  let reminders: [EKReminder]
+  let payload: [EKReminder]?
 
   init(_ reminders: [EKReminder]?) {
-    self.reminders = reminders ?? []
+    payload = reminders
+  }
+}
+
+@MainActor private final class ReminderFetchResult {
+  let records: [any ReminderRecord]
+
+  init(records: [any ReminderRecord]) {
+    self.records = records
   }
 }
