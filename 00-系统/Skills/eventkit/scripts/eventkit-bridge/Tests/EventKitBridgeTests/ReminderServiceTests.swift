@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import EventKitBridge
 
-@Suite struct ReminderServiceTests {
+@MainActor @Suite struct ReminderServiceTests {
   @Test func listUsesAllPredicate() async throws {
     let store = FakeReminderStore(reminders: [.incomplete(id: "REM-1")])
 
@@ -100,6 +100,7 @@ import Testing
     let result = try await ReminderService(store: store).setCompleted(id: "REM-1", completed: true)
 
     #expect(result.completed == true)
+    #expect(result.completionDate == DateCodec.formatInstant(store.savedCompletionDate))
     #expect(store.savedReminderIDs == ["REM-1"])
   }
 
@@ -113,12 +114,13 @@ import Testing
   }
 }
 
-private final class FakeReminderStore: EventStoreClient {
+@MainActor private final class FakeReminderStore: EventStoreClient {
   var reminders: [FakeReminder]
   var listsByID: [String: EventCalendar]
   let defaultListID: String?
   let saveError: FakeReminderStoreError?
   let removeError: FakeReminderStoreError?
+  let savedCompletionDate = Date(timeIntervalSince1970: 1_234_567_890)
   private(set) var lastReminderQuery: ReminderQuery?
   private(set) var defaultReminderListRequests = 0
   private(set) var requestedReminderIDs: [String] = []
@@ -179,6 +181,7 @@ private final class FakeReminderStore: EventStoreClient {
     guard let reminder = reminder as? FakeReminder else { throw FakeReminderStoreError.unexpectedReminder }
     if reminder.id == nil { reminder.id = "NEW-\(savedReminderIDs.count + 1)" }
     if !reminders.contains(where: { $0 === reminder }) { reminders.append(reminder) }
+    reminder.completionDate = reminder.isCompleted ? savedCompletionDate : nil
     savedReminderIDs.append(reminder.id!)
   }
 
@@ -201,17 +204,13 @@ private final class FakeReminderStore: EventStoreClient {
   func remove(_ event: any EventRecord, span: EventStoreSpan) throws {}
 }
 
-private final class FakeReminder: ReminderRecord {
+@MainActor private final class FakeReminder: ReminderRecord {
   static let defaultList = EventCalendar(id: "default", title: "Default", isWritable: true)
 
   var id: String?
   var title: String
   var list: EventCalendar?
-  var isCompleted: Bool {
-    didSet {
-      completionDate = isCompleted ? Date(timeIntervalSince1970: 0) : nil
-    }
-  }
+  var isCompleted: Bool
   var completionDate: Date?
   var startDate: Date?
   var dueDate: Date?
@@ -265,7 +264,7 @@ private enum ReminderServiceTestError: Error {
   case expectedBridgeFailure
 }
 
-private func bridgeFailure(_ operation: () async throws -> Void) async throws -> BridgeFailure {
+@MainActor private func bridgeFailure(_ operation: () async throws -> Void) async throws -> BridgeFailure {
   do {
     try await operation()
     throw ReminderServiceTestError.expectedBridgeFailure

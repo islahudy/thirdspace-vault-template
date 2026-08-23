@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import EventKitBridge
 
-@Suite struct CalendarServiceTests {
+@MainActor @Suite struct CalendarServiceTests {
   @Test func listSortsEventsByStartDate() throws {
     let store = FakeEventStore(events: [.at("11:00"), .at("09:00")])
 
@@ -157,7 +157,7 @@ import Testing
   }
 }
 
-private final class FakeEventStore: EventStoreClient {
+@MainActor private final class FakeEventStore: EventStoreClient {
   var events: [FakeEvent]
   var calendarsByID: [String: EventCalendar]
   let defaultCalendarID: String?
@@ -229,7 +229,7 @@ private final class FakeEventStore: EventStoreClient {
   }
 }
 
-private final class FakeEvent: EventRecord {
+@MainActor private final class FakeEvent: EventRecord {
   var id: String?
   var title: String
   var start: Date

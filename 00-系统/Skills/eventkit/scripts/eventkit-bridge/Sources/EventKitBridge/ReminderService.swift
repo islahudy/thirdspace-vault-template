@@ -72,7 +72,7 @@ struct ReminderUpdateRequest {
   }
 }
 
-final class ReminderService {
+@MainActor final class ReminderService {
   private let store: any EventStoreClient
 
   init(store: any EventStoreClient) {

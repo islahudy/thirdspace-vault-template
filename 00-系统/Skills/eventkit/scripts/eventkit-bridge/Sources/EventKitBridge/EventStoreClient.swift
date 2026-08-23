@@ -1,4 +1,4 @@
-@preconcurrency import EventKit
+import EventKit
 import Foundation
 
 struct EventCalendar: Codable, Equatable {
@@ -28,7 +28,7 @@ struct ReminderQuery: Equatable {
   }
 }
 
-protocol EventRecord: AnyObject {
+@MainActor protocol EventRecord: AnyObject {
   var id: String? { get set }
   var title: String { get set }
   var start: Date { get set }
@@ -42,7 +42,7 @@ protocol EventRecord: AnyObject {
   var hasRecurrenceRules: Bool { get }
 }
 
-protocol ReminderRecord: AnyObject {
+@MainActor protocol ReminderRecord: AnyObject {
   var id: String? { get }
   var title: String { get set }
   var list: EventCalendar? { get set }
@@ -54,7 +54,7 @@ protocol ReminderRecord: AnyObject {
   var notes: String? { get set }
 }
 
-protocol EventStoreClient: AnyObject {
+@MainActor protocol EventStoreClient: AnyObject {
   func calendars() throws -> [EventCalendar]
   func calendar(withIdentifier identifier: String) -> EventCalendar?
   func defaultCalendarForNewEvents() -> EventCalendar?
@@ -74,7 +74,7 @@ protocol EventStoreClient: AnyObject {
   func remove(_ reminder: any ReminderRecord) throws
 }
 
-extension EventStoreClient {
+@MainActor extension EventStoreClient {
   func reminderLists() -> [EventCalendar] { [] }
   func reminderList(withIdentifier identifier: String) -> EventCalendar? { nil }
   func defaultReminderList() -> EventCalendar? { nil }
@@ -85,7 +85,7 @@ extension EventStoreClient {
   func remove(_ reminder: any ReminderRecord) throws { throw LiveEventStoreError.unsupportedRecord }
 }
 
-final class LiveEventStoreClient: EventStoreClient {
+@MainActor final class LiveEventStoreClient: EventStoreClient {
   private let store: EKEventStore
 
   init(store: EKEventStore = EKEventStore()) {
@@ -169,12 +169,14 @@ final class LiveEventStoreClient: EventStoreClient {
     case .completed:
       predicate = store.predicateForCompletedReminders(withCompletionDateStarting: nil, ending: nil, calendars: calendars)
     }
-    let result: UncheckedSendable<[EKReminder]> = try await withCheckedThrowingContinuation { continuation in
+    let result = ReminderFetchResult()
+    try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
       store.fetchReminders(matching: predicate) { reminders in
-        continuation.resume(returning: .init(reminders ?? []))
+        result.reminders = reminders ?? []
+        continuation.resume()
       }
     }
-    return result.value.map { LiveReminderRecord($0, store: store) }
+    return result.reminders.map { LiveReminderRecord($0, store: store) }
   }
 
   func reminder(withIdentifier identifier: String) -> (any ReminderRecord)? {
@@ -219,7 +221,7 @@ private extension EventStoreSpan {
   }
 }
 
-private final class LiveEventRecord: EventRecord {
+@MainActor private final class LiveEventRecord: EventRecord {
   let event: EKEvent
   private let store: EKEventStore
 
@@ -286,7 +288,7 @@ private final class LiveEventRecord: EventRecord {
   }
 }
 
-private final class LiveReminderRecord: ReminderRecord {
+@MainActor private final class LiveReminderRecord: ReminderRecord {
   let reminder: EKReminder
   private let store: EKEventStore
 
@@ -377,10 +379,6 @@ private enum LiveEventStoreError: Error {
   case unsupportedRecord
 }
 
-private struct UncheckedSendable<Value>: @unchecked Sendable {
-  let value: Value
-
-  init(_ value: Value) {
-    self.value = value
-  }
+@MainActor private final class ReminderFetchResult {
+  var reminders: [EKReminder] = []
 }

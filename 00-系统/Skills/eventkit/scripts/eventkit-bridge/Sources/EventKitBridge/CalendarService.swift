@@ -108,7 +108,7 @@ struct CalendarUpdateRequest {
   }
 }
 
-final class CalendarService {
+@MainActor final class CalendarService {
   private let store: any EventStoreClient
 
   init(store: any EventStoreClient) {
