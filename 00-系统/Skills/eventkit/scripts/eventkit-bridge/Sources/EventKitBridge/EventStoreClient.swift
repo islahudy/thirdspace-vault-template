@@ -1,4 +1,4 @@
-import EventKit
+@preconcurrency import EventKit
 import Foundation
 
 struct EventCalendar: Codable, Equatable {
@@ -10,6 +10,22 @@ struct EventCalendar: Codable, Equatable {
 enum EventStoreSpan: String, Codable, Equatable {
   case thisEvent
   case futureEvents
+}
+
+enum ReminderStatus: String, Codable, Equatable {
+  case all
+  case incomplete
+  case completed
+}
+
+struct ReminderQuery: Equatable {
+  let status: ReminderStatus
+  let listIDs: [String]?
+
+  init(status: ReminderStatus, listIDs: [String]? = nil) {
+    self.status = status
+    self.listIDs = listIDs
+  }
 }
 
 protocol EventRecord: AnyObject {
@@ -26,6 +42,18 @@ protocol EventRecord: AnyObject {
   var hasRecurrenceRules: Bool { get }
 }
 
+protocol ReminderRecord: AnyObject {
+  var id: String? { get }
+  var title: String { get set }
+  var list: EventCalendar? { get set }
+  var isCompleted: Bool { get set }
+  var completionDate: Date? { get }
+  var startDate: Date? { get set }
+  var dueDate: Date? { get set }
+  var priority: Int { get set }
+  var notes: String? { get set }
+}
+
 protocol EventStoreClient: AnyObject {
   func calendars() throws -> [EventCalendar]
   func calendar(withIdentifier identifier: String) -> EventCalendar?
@@ -35,6 +63,26 @@ protocol EventStoreClient: AnyObject {
   func makeEvent() -> any EventRecord
   func save(_ event: any EventRecord, span: EventStoreSpan) throws
   func remove(_ event: any EventRecord, span: EventStoreSpan) throws
+
+  func reminderLists() -> [EventCalendar]
+  func reminderList(withIdentifier identifier: String) -> EventCalendar?
+  func defaultReminderList() -> EventCalendar?
+  func reminders(matching query: ReminderQuery) async throws -> [any ReminderRecord]
+  func reminder(withIdentifier identifier: String) -> (any ReminderRecord)?
+  func makeReminder() -> (any ReminderRecord)?
+  func save(_ reminder: any ReminderRecord) throws
+  func remove(_ reminder: any ReminderRecord) throws
+}
+
+extension EventStoreClient {
+  func reminderLists() -> [EventCalendar] { [] }
+  func reminderList(withIdentifier identifier: String) -> EventCalendar? { nil }
+  func defaultReminderList() -> EventCalendar? { nil }
+  func reminders(matching query: ReminderQuery) async throws -> [any ReminderRecord] { [] }
+  func reminder(withIdentifier identifier: String) -> (any ReminderRecord)? { nil }
+  func makeReminder() -> (any ReminderRecord)? { nil }
+  func save(_ reminder: any ReminderRecord) throws { throw LiveEventStoreError.unsupportedRecord }
+  func remove(_ reminder: any ReminderRecord) throws { throw LiveEventStoreError.unsupportedRecord }
 }
 
 final class LiveEventStoreClient: EventStoreClient {
@@ -84,6 +132,71 @@ final class LiveEventStoreClient: EventStoreClient {
       throw LiveEventStoreError.unsupportedRecord
     }
     try store.remove(event.event, span: span.eventKitSpan, commit: true)
+  }
+
+  func reminderLists() -> [EventCalendar] {
+    store.calendars(for: .reminder).map(EventCalendar.init)
+  }
+
+  func reminderList(withIdentifier identifier: String) -> EventCalendar? {
+    guard let calendar = store.calendar(withIdentifier: identifier),
+          calendar.allowedEntityTypes.contains(.reminder) else {
+      return nil
+    }
+    return EventCalendar(calendar)
+  }
+
+  func defaultReminderList() -> EventCalendar? {
+    store.defaultCalendarForNewReminders().map(EventCalendar.init)
+  }
+
+  func reminders(matching query: ReminderQuery) async throws -> [any ReminderRecord] {
+    let calendars: [EKCalendar]? = query.listIDs.map { ids in
+      ids.compactMap { identifier -> EKCalendar? in
+        guard let calendar = store.calendar(withIdentifier: identifier),
+              calendar.allowedEntityTypes.contains(.reminder) else {
+          return nil
+        }
+        return calendar
+      }
+    }
+    let predicate: NSPredicate
+    switch query.status {
+    case .all:
+      predicate = store.predicateForReminders(in: calendars)
+    case .incomplete:
+      predicate = store.predicateForIncompleteReminders(withDueDateStarting: nil, ending: nil, calendars: calendars)
+    case .completed:
+      predicate = store.predicateForCompletedReminders(withCompletionDateStarting: nil, ending: nil, calendars: calendars)
+    }
+    let result: UncheckedSendable<[EKReminder]> = try await withCheckedThrowingContinuation { continuation in
+      store.fetchReminders(matching: predicate) { reminders in
+        continuation.resume(returning: .init(reminders ?? []))
+      }
+    }
+    return result.value.map { LiveReminderRecord($0, store: store) }
+  }
+
+  func reminder(withIdentifier identifier: String) -> (any ReminderRecord)? {
+    (store.calendarItem(withIdentifier: identifier) as? EKReminder).map { LiveReminderRecord($0, store: store) }
+  }
+
+  func makeReminder() -> (any ReminderRecord)? {
+    LiveReminderRecord(EKReminder(eventStore: store), store: store)
+  }
+
+  func save(_ reminder: any ReminderRecord) throws {
+    guard let reminder = reminder as? LiveReminderRecord else {
+      throw LiveEventStoreError.unsupportedRecord
+    }
+    try store.save(reminder.reminder, commit: true)
+  }
+
+  func remove(_ reminder: any ReminderRecord) throws {
+    guard let reminder = reminder as? LiveReminderRecord else {
+      throw LiveEventStoreError.unsupportedRecord
+    }
+    try store.remove(reminder.reminder, commit: true)
   }
 }
 
@@ -173,6 +286,70 @@ private final class LiveEventRecord: EventRecord {
   }
 }
 
+private final class LiveReminderRecord: ReminderRecord {
+  let reminder: EKReminder
+  private let store: EKEventStore
+
+  init(_ reminder: EKReminder, store: EKEventStore) {
+    self.reminder = reminder
+    self.store = store
+  }
+
+  var id: String? {
+    reminder.calendarItemIdentifier
+  }
+
+  var title: String {
+    get { reminder.title ?? "" }
+    set { reminder.title = newValue }
+  }
+
+  var list: EventCalendar? {
+    get { reminder.calendar.map(EventCalendar.init) }
+    set {
+      guard let newValue else { return }
+      reminder.calendar = store.calendar(withIdentifier: newValue.id)
+    }
+  }
+
+  var isCompleted: Bool {
+    get { reminder.isCompleted }
+    set { reminder.isCompleted = newValue }
+  }
+
+  var completionDate: Date? {
+    reminder.completionDate
+  }
+
+  var startDate: Date? {
+    get { Self.date(from: reminder.startDateComponents) }
+    set { reminder.startDateComponents = Self.components(from: newValue) }
+  }
+
+  var dueDate: Date? {
+    get { Self.date(from: reminder.dueDateComponents) }
+    set { reminder.dueDateComponents = Self.components(from: newValue) }
+  }
+
+  var priority: Int {
+    get { reminder.priority }
+    set { reminder.priority = newValue }
+  }
+
+  var notes: String? {
+    get { reminder.notes }
+    set { reminder.notes = newValue }
+  }
+
+  private static func date(from components: DateComponents?) -> Date? {
+    components.flatMap { Calendar.current.date(from: $0) }
+  }
+
+  private static func components(from date: Date?) -> DateComponents? {
+    date.map { Calendar.current.dateComponents(in: .current, from: $0) }
+  }
+}
+
 private extension EKEventAvailability {
   var bridgeValue: String {
     switch self {
@@ -198,4 +375,12 @@ private extension EKEventAvailability {
 
 private enum LiveEventStoreError: Error {
   case unsupportedRecord
+}
+
+private struct UncheckedSendable<Value>: @unchecked Sendable {
+  let value: Value
+
+  init(_ value: Value) {
+    self.value = value
+  }
 }
