@@ -4,7 +4,7 @@ type: "spec"
 topic: "system"
 workspace: "00-系统"
 created: "2026-08-22 00:00:00"
-modified: "2026-08-22 00:00:00"
+modified: "2026-08-23 15:30:00"
 tags: [system, daily-agent, data-contracts]
 source: "agent"
 status: "active"
@@ -33,6 +33,8 @@ Required: `id`, `title`, `status`, `priority`, `tags`, `created_at`, `updated_at
 - `project_id` must resolve in `project-index.json`.
 - Cancellation requires explicit confirmation.
 - `external_ref` is an EventKit locator with required `provider`, `kind`, and `id` fields plus optional `external_id`. `provider` is `eventkit`; `kind` is `calendar | reminder`. `id` stores EventKit's local identifier and `external_id` stores the secondary server-provided identifier. Both are locators only, not cached Apple state.
+- Create or update the local task without `external_ref` before creating its Apple item. Only after EventKit save returns may `task-link-eventkit` attach or replace the returned local `id` and optional `external_id`. The operation preserves every other task field, advances `updated_at`, and appends one bounded `task_eventkit_linked` event that records only the kind and whether a prior locator was replaced. Apple failure leaves the local task intact and unlinked.
+- `task-transition` changes `due` or `review_after` only when the corresponding option is supplied. A transition away from `completed` removes `completed_at`; a transition to `completed` may use a validated EventKit completion timestamp.
 
 ## Reading Item
 

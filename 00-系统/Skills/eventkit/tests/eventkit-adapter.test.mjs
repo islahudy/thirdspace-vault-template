@@ -4,17 +4,17 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import test from "node:test";
 
-import { callEventKit } from "../scripts/eventkit-adapter.mjs";
+import { callEventKit, EventKitAdapterError } from "../scripts/eventkit-adapter.mjs";
 
 const execFileAsync = promisify(execFile);
 const fixtureBridge = fileURLToPath(new URL("./fixtures/fake-bridge.mjs", import.meta.url));
 const adapterCLI = fileURLToPath(new URL("../scripts/eventkit-adapter.mjs", import.meta.url));
 
-function callWithMode(mode, options = {}) {
+async function callWithMode(mode, options = {}) {
   const previous = process.env.FAKE_BRIDGE_MODE;
   process.env.FAKE_BRIDGE_MODE = mode;
   try {
-    return callEventKit(
+    return await callEventKit(
       { action: "calendar.list", params: {} },
       { executable: fixtureBridge, timeoutMs: 500, ...options },
     );
@@ -58,6 +58,37 @@ test("adapter requires a boolean success field", async () => {
   await assert.rejects(
     callWithMode("invalid-shape"),
     (error) => error.code === "INVALID_BRIDGE_RESPONSE",
+  );
+});
+
+test("adapter validates the exclusive Bridge response union", async () => {
+  const malformedModes = [
+    "success-missing-data",
+    "success-with-error",
+    "failure-missing-error",
+    "failure-with-data",
+    "failure-code-number",
+    "failure-message-number",
+  ];
+
+  for (const mode of malformedModes) {
+    await assert.rejects(
+      callWithMode(mode),
+      (error) => error instanceof EventKitAdapterError
+        && error.code === "INVALID_BRIDGE_RESPONSE",
+      mode,
+    );
+  }
+});
+
+test("adapter normalizes synchronous spawn argument failures", async () => {
+  await assert.rejects(
+    callEventKit(
+      { action: "auth.status", params: {} },
+      { executable: "\0", timeoutMs: 500 },
+    ),
+    (error) => error instanceof EventKitAdapterError
+      && error.code === "INVALID_BRIDGE_RESPONSE",
   );
 });
 

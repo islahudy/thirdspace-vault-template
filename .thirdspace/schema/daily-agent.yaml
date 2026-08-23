@@ -16,6 +16,10 @@ task:
     kind_values: [calendar, reminder]
     required_fields: [provider, kind, id]
     optional_fields: [external_id]
+    attach_command: task-link-eventkit
+    attach_event_type: task_eventkit_linked
+    ordering: [create_or_update_local_task, create_apple_item, attach_returned_locators]
+    apple_failure: keep_local_task_unlinked
 
 reading:
   kind_values: [paper, blog]
@@ -37,6 +41,6 @@ reporting:
   output_root: "02-日记/复盘"
 
 permissions:
-  auto: [create_task, update_task, confirm_completion, enroll_tagged_reading, write_daily_plan, append_event]
+  auto: [create_task, update_task, attach_eventkit_locator, confirm_completion, enroll_tagged_reading, write_daily_plan, append_event]
   confirm: [cancel_task, enroll_candidate, change_project_stage, move_workspace, archive_project, publish_external]
   deny: [delete_history, rewrite_raw_event, modify_git_history, store_secret]

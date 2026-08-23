@@ -4,7 +4,7 @@ type: "roadmap"
 topic: "system"
 workspace: "00-系统"
 created: "2026-08-22 00:00:00"
-modified: "2026-08-22 00:00:00"
+modified: "2026-08-23 15:30:00"
 tags: ["system", "roadmap", "pi-agent", "eventkit", "implementation-plan"]
 source: "agent"
 status: "draft"
@@ -16,7 +16,7 @@ status: "draft"
 
 **Goal:** Build a Pi Agent Skill backed by a Swift EventKit CLI so `today` can read current Calendar/Reminders data and explicit Todo commands can safely create, edit, complete, reopen, or delete Apple items.
 
-**Architecture:** Keep the existing Daily Agent data plane platform-independent. Add a standalone Swift CLI under a new `eventkit` Skill, wrap it with a Node adapter, and let Pi orchestrate `daily-agent opening` plus fresh EventKit queries. Store only an optional EventKit identifier on linked local tasks; never cache EventKit objects or run a background synchronizer.
+**Architecture:** Keep the existing Daily Agent data plane platform-independent. Add a standalone Swift CLI under the `eventkit` Skill, wrap it with a Node adapter, and let Pi orchestrate `daily-agent opening` plus fresh EventKit queries. Store an optional local EventKit identifier and secondary external identifier on linked tasks; attach them only after Apple save succeeds, use the external identifier solely as an ambiguity-safe fallback, bound completed Reminder fetches in EventKit, and never cache EventKit objects or run a background synchronizer.
 
 **Tech Stack:** Swift 6 / Swift Package Manager, macOS 14+ EventKit, Node.js ESM, `node:test`, Swift Testing/XCTest, YAML and Markdown control-plane contracts.
 
@@ -32,6 +32,8 @@ status: "draft"
 - Calendar and Reminder mutations require an explicit user instruction; deletion always requires confirmation.
 - Recurring Calendar updates/deletes require `thisEvent` or `futureEvents`.
 - EventKit failure degrades `today` to the existing local opening instead of failing it.
+- Apple create follows `create/update local task -> save Apple item -> task-link-eventkit`; Apple failure leaves the local task unlinked.
+- Completed Reminder reads for Daily Opening pass the exact absolute local-day range into EventKit's completed predicate.
 - Do not store secrets, TCC authorization state, Calendar contents, Reminder contents, or compiled binaries in the vault.
 - Use `apply_patch` for source edits, TDD for each behavior change, and commit only the files named by each task.
 
@@ -91,8 +93,8 @@ status: "draft"
 - Modify: `.thirdspace/schema/daily-agent.yaml`
 
 **Interfaces:**
-- Produces: `ExternalRef = { provider: "eventkit", kind: "calendar" | "reminder", id: string }`.
-- Produces: `task-add --external-kind calendar|reminder --external-id ID`.
+- Produces: `ExternalRef = { provider: "eventkit", kind: "calendar" | "reminder", id: string, external_id?: string }`.
+- Produces: backward-compatible `task-add` locator flags plus `task-link-eventkit --id TASK_ID --external-kind KIND --external-id LOCAL_ID [--external-external-id SERVER_ID]` for post-save attachment or replacement.
 - Produces: `task-transition --completed-at ISO8601` for preserving EventKit completion time.
 
 - [ ] **Step 1: Add failing task contract tests**
@@ -748,7 +750,7 @@ Do not mutate tasks, import unlinked reminders, or infer matches by title.
 
 1. Run local `opening`.
 2. Compute local-day bounds with the machine timezone and call `calendar.list` for `[00:00, next 00:00)`.
-3. Call `reminder.list` for incomplete reminders and for reminders completed during the local day.
+3. Call `reminder.list` for incomplete reminders without completion bounds, then call it for completed reminders with the exact absolute local-day `completionStart` and `completionEnd` so EventKit applies the bounded predicate.
 4. Apply `complete` entries using `task-transition --status completed --completed-at ...`.
 5. Ask before applying reopen entries; only report broken references.
 6. Present Calendar events and Reminders before asking for today's 1–3 focus tasks.
@@ -874,6 +876,20 @@ git commit -m "docs: verify Pi EventKit integration"
 
 ---
 
+## Final-review contract amendment
+
+This amendment is part of numbered plan 19 and supersedes earlier single-identifier or locally filtered examples without renumbering the specification set.
+
+- Local task durability comes first. Create or update the local task without a locator, save the Apple item, then run validated `task-link-eventkit` with the returned `id` and optional `externalId`. The pure attachment transform preserves all task fields except `updated_at` and `external_ref`; the state operation appends one bounded event. Apple failure leaves the task unlinked, while linked `task-add` stays backward compatible.
+- `external_ref.id` and `external_ref.external_id` carry EventKit's local and server-provided identifiers respectively. Reads and mutations try local ID first, then accept exactly one expected-type external match. Zero matches retain not-found; multiple matches return an ambiguity error without mutation.
+- `reminder.list` carries optional absolute `completionStart` and `completionEnd` through dispatcher, request/query, store protocol, and live EventKit. Either both form a strictly increasing pair or the request fails before fetch. Daily Opening uses the exact local-day `[00:00, next 00:00)` pair for the completed query and keeps the incomplete query separate.
+- `task-transition` omits absent CLI patch fields, preserves stored `due` and `review_after`, removes stale `completed_at` when leaving `completed`, and still accepts a validated EventKit completion timestamp when completing.
+- The Node adapter accepts only the exclusive Bridge response union and normalizes synchronous spawn argument failures to `EventKitAdapterError(INVALID_BRIDGE_RESPONSE)`. Swift keeps EventKit handles main-actor confined, exposes `EventRecord.id` read-only through its protocol, and documents the one-shot `ReminderFetchBatch @unchecked Sendable` ownership hop.
+
+The final wave is accepted only after focused RED/GREEN evidence, full Node and Swift suites, strict-concurrency and release builds, subsystem-audit baseline comparison, `git diff --check`, and confirmation that no `.build` artifact is tracked.
+
+---
+
 ## Final Verification
 
 - [ ] Run `git status --short` and confirm only unrelated pre-existing user changes remain.
@@ -882,4 +898,3 @@ git commit -m "docs: verify Pi EventKit integration"
 - [ ] Run `audit-subsystems --write-report` once more after documentation edits.
 - [ ] Confirm the final `today` response clearly distinguishes local tasks, Calendar time blocks, Reminders, and unavailable sources.
 - [ ] Confirm no `.build/` directory, binary, private Calendar data, Reminder data, or TCC state is tracked by Git.
-

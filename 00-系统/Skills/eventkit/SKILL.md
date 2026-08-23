@@ -35,6 +35,7 @@ Create, update, delete, complete, and reopen only from an explicit user instruct
 
 - Always confirm deletion immediately before calling `calendar.delete` or `reminder.delete`.
 - Persist both `id` and `externalId` returned by create. Supply both on later get, update, delete, complete, and reopen calls; the bridge tries the local `id` first and uses `externalId` only as an on-demand fallback when that local lookup misses.
+- When an Apple item represents a Daily Agent task, create or update the local task first without a locator, save the Apple item second, and attach the returned identifiers with `task-link-eventkit` only after success. An Apple failure leaves the local task unlinked.
 - Never locate an item by title or time. If the local and external identifiers cannot resolve exactly one item of the expected type, report the structured failure without mutating any candidate.
 - Before changing or deleting a recurring Calendar event, ask whether the scope is `thisEvent` or `futureEvents`, then pass that `span`. Never infer the recurrence span.
 - Treat permission requests as system authorization changes: inspect `auth.status`, explain the local access, and call `auth.request` only after explicit consent.
@@ -45,7 +46,7 @@ Fetch from EventKit on every read. Do not answer from a prior response, cached D
 
 Treat fresh EventKit results as authoritative even when a fallback returns a new local `id`. The external identifier preserves a lookup path across full sync; it is not synchronization, cached Apple state, or permission to overwrite a local link silently.
 
-For today's agenda, calculate explicit local-day boundaries with their timezone, call `calendar.list` for that interval, and call `reminder.list` with the required status. Reason over the fresh responses only after both calls return.
+For today's agenda, calculate explicit local-day boundaries with their timezone and call `calendar.list` for that interval. Call `reminder.list` separately for incomplete items and for completed items; the completed call must pass those exact absolute bounds as `completionStart` and `completionEnd` so EventKit applies the `[00:00, next 00:00)` predicate. Reason over the fresh responses only after the calls return.
 
 ## Failures and local-only degradation
 

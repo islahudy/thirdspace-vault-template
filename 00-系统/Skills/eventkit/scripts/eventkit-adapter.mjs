@@ -17,6 +17,26 @@ export class EventKitAdapterError extends Error {
   }
 }
 
+function hasValidResponseShape(response) {
+  if (
+    response === null
+    || typeof response !== "object"
+    || Array.isArray(response)
+    || typeof response.success !== "boolean"
+  ) {
+    return false;
+  }
+  const hasData = Object.hasOwn(response, "data");
+  const hasError = Object.hasOwn(response, "error");
+  if (response.success) return hasData && !hasError;
+  if (hasData || !hasError) return false;
+  return response.error !== null
+    && typeof response.error === "object"
+    && !Array.isArray(response.error)
+    && typeof response.error.code === "string"
+    && typeof response.error.message === "string";
+}
+
 export function callEventKit(request, options = {}) {
   const executable = options.executable
     ?? process.env.THIRDSPACE_EVENTKIT_BRIDGE
@@ -41,10 +61,19 @@ export function callEventKit(request, options = {}) {
   }
 
   return new Promise((resolve, reject) => {
-    const child = spawn(executable, [], {
-      env: process.env,
-      stdio: ["pipe", "pipe", "pipe"],
-    });
+    let child;
+    try {
+      child = spawn(executable, [], {
+        env: process.env,
+        stdio: ["pipe", "pipe", "pipe"],
+      });
+    } catch {
+      reject(new EventKitAdapterError(
+        "INVALID_BRIDGE_RESPONSE",
+        "EventKit bridge could not be started.",
+      ));
+      return;
+    }
     const stdout = [];
     const stderr = [];
     let stdoutBytes = 0;
@@ -120,15 +149,10 @@ export function callEventKit(request, options = {}) {
         return;
       }
 
-      if (
-        response === null
-        || typeof response !== "object"
-        || Array.isArray(response)
-        || typeof response.success !== "boolean"
-      ) {
+      if (!hasValidResponseShape(response)) {
         finish(() => reject(new EventKitAdapterError(
           "INVALID_BRIDGE_RESPONSE",
-          "EventKit bridge response must contain a boolean success field.",
+          "EventKit bridge response must use exactly one valid success or failure branch.",
         )));
         return;
       }

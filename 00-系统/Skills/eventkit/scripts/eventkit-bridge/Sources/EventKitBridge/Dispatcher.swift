@@ -154,7 +154,9 @@ import Foundation
   private func reminderListRequest(_ values: RequestParameters) throws -> ReminderListRequest {
     return try .init(
       status: values.optionalEnum("status", as: ReminderStatus.self) ?? .all,
-      listIDs: values.optionalStrings("listIDs")
+      listIDs: values.optionalStrings("listIDs"),
+      completionStart: values.optionalDate("completionStart"),
+      completionEnd: values.optionalDate("completionEnd")
     )
   }
 

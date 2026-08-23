@@ -39,6 +39,50 @@ import Testing
     #expect(result.map(\.id) == ["REM-1"])
   }
 
+  @Test func completedListForwardsCompletionBoundsToTheStorePredicate() async throws {
+    let store = FakeReminderStore(reminders: [.completed(id: "REM-1")])
+    let start = try DateCodec.parseInstant("2026-08-23T00:00:00+08:00")
+    let end = try DateCodec.parseInstant("2026-08-24T00:00:00+08:00")
+
+    _ = try await ReminderService(store: store).list(.init(
+      status: .completed,
+      completionStart: start,
+      completionEnd: end
+    ))
+
+    #expect(store.lastReminderQuery == .init(
+      status: .completed,
+      completionStart: start,
+      completionEnd: end
+    ))
+  }
+
+  @Test func invalidOrPartialCompletionBoundsFailBeforeFetchingReminders() async throws {
+    let start = try DateCodec.parseInstant("2026-08-23T00:00:00+08:00")
+    let end = try DateCodec.parseInstant("2026-08-24T00:00:00+08:00")
+    let cases: [(String, Date?, Date?)] = [
+      ("start only", start, nil),
+      ("end only", nil, end),
+      ("equal", start, start),
+      ("decreasing", end, start),
+    ]
+
+    for (label, completionStart, completionEnd) in cases {
+      let store = FakeReminderStore(reminders: [.completed(id: "REM-1")])
+
+      let failure = try await bridgeFailure {
+        _ = try await ReminderService(store: store).list(.init(
+          status: .completed,
+          completionStart: completionStart,
+          completionEnd: completionEnd
+        ))
+      }
+
+      #expect(failure.error.code == .invalidDateRange, "Expected \(label) to fail")
+      #expect(store.reminderFetchCount == 0, "Expected \(label) to fail before fetch")
+    }
+  }
+
   @Test func listFiltersByRequestedLists() async throws {
     let store = FakeReminderStore(reminders: [
       .incomplete(id: "REM-1", listID: "work"),
@@ -187,6 +231,7 @@ import Testing
   let removeError: FakeReminderStoreError?
   let savedCompletionDate = Date(timeIntervalSince1970: 1_234_567_890)
   private(set) var lastReminderQuery: ReminderQuery?
+  private(set) var reminderFetchCount = 0
   private(set) var defaultReminderListRequests = 0
   private(set) var requestedReminderIDs: [String] = []
   private(set) var requestedExternalIDs: [String] = []
@@ -221,6 +266,7 @@ import Testing
   }
 
   func reminders(matching query: ReminderQuery) async throws -> [any ReminderRecord] {
+    reminderFetchCount += 1
     lastReminderQuery = query
     return reminders.filter { reminder in
       let matchesStatus = switch query.status {

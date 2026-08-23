@@ -30,7 +30,7 @@ All timestamps are absolute ISO 8601 strings with an explicit `Z` or numeric off
 | `calendar.update` | `id` | `externalId`, `title`, `start`, `end`, `allDay`, `calendarID`, `location`, `notes`, `url`, `availability`, `span` | updated `EventDTO` |
 | `calendar.delete` | `id` | `externalId`, `span` | `{ "deleted": true }` |
 | `reminder.lists` | none | none | `CalendarDTO[]` |
-| `reminder.list` | none | `status`, `listIDs: string[]` | `ReminderDTO[]` |
+| `reminder.list` | none | `status`, `listIDs: string[]`, `completionStart`, `completionEnd` | `ReminderDTO[]` |
 | `reminder.get` | `id` | `externalId` | `ReminderDTO` |
 | `reminder.create` | `title` | `listID`, `startDate`, `dueDate`, `priority`, `notes` | created `ReminderDTO` |
 | `reminder.update` | `id` | `externalId`, `title`, `listID`, `startDate`, `dueDate`, `priority`, `notes` | updated `ReminderDTO` |
@@ -46,6 +46,7 @@ Field constraints and defaults:
 - `availability` is `notSupported`, `free`, `busy`, `tentative`, or `unavailable`; create defaults to `busy`.
 - `span` is `thisEvent` or `futureEvents`. It is required by behavior, even though syntactically optional, when updating or deleting a recurring event.
 - `status` is `all`, `incomplete`, or `completed`; it defaults to `all`.
+- `completionStart` and `completionEnd` are optional absolute timestamps for the completed-Reminder predicate. Omit both, or supply both with `completionEnd` later than `completionStart`; partial, equal, or decreasing ranges are invalid. Daily Opening supplies the exact local-day `[00:00, next 00:00)` pair when `status` is `completed`.
 - `startDate` and `dueDate` use the same absolute timestamp format as Calendar fields.
 - `priority` is an integer and defaults to `0` on create.
 - Omitted or `null` optional update fields leave existing values unchanged; the current protocol does not use `null` to clear a field.
@@ -61,7 +62,7 @@ Every required parameter has type `string`, must be non-empty, and must not be `
 | `allDay` | `boolean` | Defaults to `false` on create. |
 | `externalId` | `string` | Non-empty secondary locator accepted only by get/update/delete/complete/reopen actions. |
 | `calendarID`, `location`, `notes`, `title`, `listID` | `string` | Optional `title` applies only to update actions; required create titles remain non-empty. |
-| `start`, `end`, `startDate`, `dueDate` | `string` | Absolute ISO 8601 timestamp with explicit timezone. Required Calendar `start`/`end` remain non-empty. |
+| `start`, `end`, `startDate`, `dueDate`, `completionStart`, `completionEnd` | `string` | Absolute ISO 8601 timestamp with explicit timezone. Required Calendar `start`/`end` remain non-empty; completion bounds must be supplied as a valid increasing pair. |
 | `url` | `string` | Absolute URL with a scheme. |
 | `availability` | `string` | `notSupported`, `free`, `busy`, `tentative`, or `unavailable`. |
 | `span` | `string` | `thisEvent` or `futureEvents`; required by behavior for recurring Calendar mutation. |
@@ -186,7 +187,7 @@ Protocol failure:
 | `CALENDAR_NOT_FOUND` | The requested/default Calendar is unavailable. |
 | `REMINDER_LIST_NOT_FOUND` | The requested/default Reminder list is unavailable. |
 | `INVALID_DATE` | A timestamp is malformed or lacks an explicit timezone. |
-| `INVALID_DATE_RANGE` | Calendar `end` is not later than `start`. |
+| `INVALID_DATE_RANGE` | A Calendar range is not increasing, or Reminder completion bounds are partial or not increasing. |
 | `RECURRING_EVENT_REQUIRES_SPAN` | A recurring update/delete omitted `span`. |
 | `READ_ONLY_CALENDAR` | The target Calendar or Reminder list is not writable. |
 | `SAVE_FAILED` | EventKit could not save the item. |

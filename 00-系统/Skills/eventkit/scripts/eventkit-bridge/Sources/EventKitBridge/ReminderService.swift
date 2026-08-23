@@ -16,10 +16,19 @@ struct ReminderDTO: Codable, Equatable {
 struct ReminderListRequest {
   let status: ReminderStatus
   let listIDs: [String]?
+  let completionStart: Date?
+  let completionEnd: Date?
 
-  init(status: ReminderStatus = .all, listIDs: [String]? = nil) {
+  init(
+    status: ReminderStatus = .all,
+    listIDs: [String]? = nil,
+    completionStart: Date? = nil,
+    completionEnd: Date? = nil
+  ) {
     self.status = status
     self.listIDs = listIDs
+    self.completionStart = completionStart
+    self.completionEnd = completionEnd
   }
 }
 
@@ -81,8 +90,14 @@ struct ReminderUpdateRequest {
   }
 
   func list(_ request: ReminderListRequest = .init()) async throws -> [ReminderDTO] {
-    try await store.reminders(
-      matching: .init(status: request.status, listIDs: request.listIDs)
+    try validateCompletionRange(start: request.completionStart, end: request.completionEnd)
+    return try await store.reminders(
+      matching: .init(
+        status: request.status,
+        listIDs: request.listIDs,
+        completionStart: request.completionStart,
+        completionEnd: request.completionEnd
+      )
     ).map(reminderDTO)
   }
 
@@ -168,6 +183,16 @@ struct ReminderUpdateRequest {
       throw BridgeFailure(code: .reminderNotFound, message: "Reminder not found.")
     }
     return reminder
+  }
+
+  private func validateCompletionRange(start: Date?, end: Date?) throws {
+    guard let start, let end, end > start else {
+      if start == nil, end == nil { return }
+      throw BridgeFailure(
+        code: .invalidDateRange,
+        message: "completionStart and completionEnd must be supplied together, and completionEnd must be later than completionStart."
+      )
+    }
   }
 
   private func writableList(

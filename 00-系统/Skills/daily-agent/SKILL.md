@@ -9,7 +9,7 @@ description: Use when the user starts the day, reviews remaining work, manages p
 
 Operate ThirdSpace as a personal research-management assistant. Current state lives in `.thirdspace/data/daily-agent/`; worklogs are snapshots, never the task source of truth.
 
-When an authorized Calendar or Reminder create returns a DTO, persist its `id` as `external_ref.id` and its available `externalId` as `external_ref.external_id`. Supply both locators on later EventKit reads and mutations. Fresh EventKit DTOs remain authoritative; the local reference is never cached Apple state.
+For a Todo routed to Apple, first create or update the local task without a locator, then create the Calendar Event or Reminder. Only after that Apple save succeeds, run `task-link-eventkit` with the returned `id` and available `externalId`. Apple failure leaves the local task intact and unlinked. Supply both saved locators on later EventKit reads and mutations; fresh EventKit DTOs remain authoritative and the local reference is never cached Apple state.
 
 ## Required Load Order
 
@@ -24,7 +24,7 @@ Run this sequence in order:
 
 1. Call local `opening`.
 2. Using the machine's local timezone, calculate `[00:00, next 00:00)` as absolute timestamps and call EventKit `calendar.list` for that interval.
-3. Call EventKit `reminder.list` once with `status: "incomplete"` and once with `status: "completed"`; from the completed response retain only Reminders whose `completionDate` is inside the same local-day interval.
+3. Call EventKit `reminder.list` once with `status: "incomplete"` and no completion bounds. Call it again with `status: "completed"`, `completionStart` set to the exact local-day start, and `completionEnd` set to the exact next-day start. The completed fetch is bounded at EventKit; do not fetch unbounded history for local filtering.
 4. Collect both EventKit Reminder identifiers linked from the loaded local tasks. For each link absent from the incomplete and today-completed list results by local `id` or a unique `external_id` match, call fresh `reminder.get` with `id` and optional `externalId`.
 5. Add every successful `reminder.get` DTO to reconciliation, including a Reminder completed before today. Only a `REMINDER_NOT_FOUND` response confirms a missing ID; any other lookup failure is an unavailable anomaly for manual handling, not a broken reference.
 6. Call `classifyReminderUpdates` with the fresh Reminder DTOs and the explicitly confirmed-missing local IDs. Match `external_ref.id` first, then uniquely match `external_ref.external_id` to a DTO `externalId`; never match by title or import an unlinked Apple item.
@@ -81,6 +81,7 @@ node scripts/daily-agent.mjs opening --vault {VAULT}
 node scripts/daily-agent.mjs project-register --vault {VAULT} --id ID --name NAME --path PATH
 node scripts/daily-agent.mjs task-add --vault {VAULT} --title TITLE --priority normal --tags 科研,组会
 node scripts/daily-agent.mjs task-add --vault {VAULT} --title TITLE --external-kind reminder --external-id LOCAL_ID --external-external-id SERVER_ID
+node scripts/daily-agent.mjs task-link-eventkit --vault {VAULT} --id TASK_ID --external-kind reminder --external-id LOCAL_ID --external-external-id SERVER_ID
 node scripts/daily-agent.mjs task-transition --vault {VAULT} --id ID --status completed
 node scripts/daily-agent.mjs reading-scan --vault {VAULT}
 node scripts/daily-agent.mjs reading-confirm --vault {VAULT} --id ID --decision accept
@@ -92,6 +93,8 @@ node scripts/daily-agent.mjs review-generate --vault {VAULT} --kind weekly --dat
 ```
 
 For `task-add`, EventKit locator flags are a group: omit all three for an unlinked task, or supply both `--external-kind` and `--external-id`; `--external-external-id` is optional only when that required pair is present. Any partial combination is invalid and must not create a task.
+
+For `task-link-eventkit`, the task must already exist and the same locator group is required; the operation can replace an older locator. The normal create sequence uses an unlinked `task-add`, performs the Apple create through the EventKit Skill, then runs `task-link-eventkit` with the returned identifiers. The linked form of `task-add` remains supported for backward compatibility, but must not be used to invent identifiers before Apple save.
 
 All commands return one JSON value. On error, stop and report stderr; do not repair or overwrite damaged state.
 
@@ -108,6 +111,7 @@ All commands return one JSON value. On error, stop and report stderr; do not rep
 - Completing the opening before the user selects focus items.
 - Starting EventKit from `daily-agent.mjs`, matching by title, or importing unlinked Apple items.
 - Persisting only one identifier from an EventKit create response, or treating `external_id` as cached Apple state rather than an on-demand locator.
+- Creating the Apple item before the durable local task, or attaching a locator when Apple save failed.
 - Treating absence from filtered list results as `REMINDER_NOT_FOUND` instead of fetching the linked ID.
 - Auto-completing a cancelled task or a Reminder without `completionDate`.
 - Calling `auth.request` during an ordinary `today` flow or stopping local planning when EventKit is unavailable.

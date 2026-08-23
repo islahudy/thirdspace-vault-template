@@ -299,7 +299,7 @@ import Testing
 }
 
 @MainActor private final class FakeEvent: EventRecord {
-  var id: String?
+  fileprivate(set) var id: String?
   let externalId: String?
   var title: String
   var start: Date

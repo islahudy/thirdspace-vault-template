@@ -8,7 +8,13 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { readState, mutateState } from "../scripts/lib/store.mjs";
 import { appendEvent, makeEventId } from "../scripts/lib/events.mjs";
 import { classifyReminderUpdates } from "../scripts/lib/external-items.mjs";
-import { createTask, listOpeningTasks, registerProject, transitionTask } from "../scripts/lib/tasks.mjs";
+import {
+  attachEventKitLocator,
+  createTask,
+  listOpeningTasks,
+  registerProject,
+  transitionTask,
+} from "../scripts/lib/tasks.mjs";
 import { confirmReadingCandidate, scanReadingInbox } from "../scripts/lib/reading.mjs";
 import { completeOpening, prepareOpening } from "../scripts/lib/opening.mjs";
 
@@ -208,6 +214,92 @@ test("task creation rejects incomplete EventKit references", () => {
   }
 });
 
+test("task external references reject invalid values and normalize identifier whitespace", () => {
+  const root = fixtureVault();
+  const invalidReferences = [
+    ["wrong provider", { provider: "icloud", kind: "reminder", id: "REM-1" }],
+    ["wrong kind", { provider: "eventkit", kind: "todo", id: "REM-1" }],
+    ["non-string local ID", { provider: "eventkit", kind: "reminder", id: 42 }],
+  ];
+  try {
+    for (const [label, external_ref] of invalidReferences) {
+      assert.throws(
+        () => createTask(testContext(root), { title: label, external_ref }),
+        /invalid external_ref/,
+        label,
+      );
+    }
+
+    const task = createTask(testContext(root), {
+      title: "Normalized locator",
+      external_ref: {
+        provider: "eventkit",
+        kind: "calendar",
+        id: "  EVT-1  ",
+        external_id: "  EXT-EVT-1  ",
+      },
+    });
+    assert.deepEqual(task.external_ref, {
+      provider: "eventkit",
+      kind: "calendar",
+      id: "EVT-1",
+      external_id: "EXT-EVT-1",
+    });
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("pure EventKit locator attachment preserves the task and replaces only its locator metadata", () => {
+  const original = {
+    id: "task_1",
+    title: "Submit report",
+    status: "active",
+    priority: "high",
+    due: "2026-08-25",
+    review_after: "2026-08-24",
+    tags: ["work"],
+    project_id: "project_1",
+    created_at: "2026-08-20T08:00:00+08:00",
+    updated_at: "2026-08-20T08:00:00+08:00",
+    source: "pi-agent",
+    external_ref: {
+      provider: "eventkit", kind: "reminder", id: "REM-OLD", external_id: "EXT-OLD",
+    },
+  };
+
+  const attached = attachEventKitLocator(
+    original,
+    { provider: "eventkit", kind: "reminder", id: " REM-NEW ", external_id: " EXT-NEW " },
+    "2026-08-22T09:00:00+08:00",
+  );
+
+  assert.deepEqual(attached, {
+    ...original,
+    updated_at: "2026-08-22T09:00:00+08:00",
+    external_ref: {
+      provider: "eventkit", kind: "reminder", id: "REM-NEW", external_id: "EXT-NEW",
+    },
+  });
+  assert.equal(original.external_ref.id, "REM-OLD");
+});
+
+test("pure EventKit locator attachment requires a complete validated locator", () => {
+  const task = { id: "task_1", title: "Unlinked", updated_at: "2026-08-20T08:00:00+08:00" };
+  assert.throws(
+    () => attachEventKitLocator(task, undefined, "2026-08-22T09:00:00+08:00"),
+    /invalid external_ref/,
+  );
+  assert.throws(
+    () => attachEventKitLocator(
+      task,
+      { provider: "eventkit", kind: "reminder", id: "   " },
+      "2026-08-22T09:00:00+08:00",
+    ),
+    /invalid external_ref/,
+  );
+});
+
 test("completion accepts the EventKit completion timestamp", () => {
   const root = fixtureVault();
   try {
@@ -265,6 +357,123 @@ test("CLI rejects every partial EventKit locator flag combination", () => {
     }
     const tasksFile = path.join(root, ".thirdspace", "data", "daily-agent", "tasks.json");
     assert.deepEqual(readState(tasksFile, "tasks").tasks, []);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("CLI attaches and replaces an EventKit locator on an existing task after Apple save", () => {
+  const root = fixtureVault();
+  try {
+    const task = createTask(
+      { vaultRoot: root, now: "2026-08-20T08:00:00+08:00" },
+      {
+        title: "Linked after save",
+        priority: "high",
+        due: "2026-08-25",
+        review_after: "2026-08-24",
+        tags: ["work"],
+      },
+    );
+
+    const linked = runCli(
+      root, "task-link-eventkit", "--vault", root, "--id", task.id,
+      "--external-kind", "reminder", "--external-id", " REM-1 ",
+      "--external-external-id", " EXT-REM-1 ",
+    ).task;
+    assert.deepEqual(linked, {
+      ...task,
+      updated_at: "2026-08-22T09:00:00+08:00",
+      external_ref: {
+        provider: "eventkit", kind: "reminder", id: "REM-1", external_id: "EXT-REM-1",
+      },
+    });
+
+    const replaced = runCli(
+      root, "task-link-eventkit", "--vault", root, "--id", task.id,
+      "--external-kind", "calendar", "--external-id", "EVT-2",
+    ).task;
+    assert.deepEqual(replaced.external_ref, {
+      provider: "eventkit", kind: "calendar", id: "EVT-2",
+    });
+    assert.equal(readEvents(root).at(-1).event_type, "task_eventkit_linked");
+    assert.deepEqual(
+      Object.keys(readEvents(root).at(-1)).sort(),
+      ["event_id", "event_type", "kind", "replaced", "schema_version", "source_id", "subject_id", "timestamp"].sort(),
+    );
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("CLI EventKit locator attachment rejects missing tasks and every partial locator group", () => {
+  const root = fixtureVault();
+  const partialCombinations = [
+    ["no locator"],
+    ["kind only", "--external-kind", "reminder"],
+    ["local ID only", "--external-id", "REM-1"],
+    ["external ID only", "--external-external-id", "EXT-REM-1"],
+    ["kind and external ID", "--external-kind", "reminder", "--external-external-id", "EXT-REM-1"],
+    ["local and external IDs", "--external-id", "REM-1", "--external-external-id", "EXT-REM-1"],
+  ];
+  try {
+    const task = createTask(testContext(root), { title: "Still unlinked" });
+    for (const [label, ...flags] of partialCombinations) {
+      const result = runCliFailure(
+        root, "task-link-eventkit", "--vault", root, "--id", task.id, ...flags,
+      );
+      assert.equal(result.status, 1, label);
+      assert.match(result.stderr, /require(?:s)? --external-kind and --external-id/, label);
+    }
+    const missing = runCliFailure(
+      root, "task-link-eventkit", "--vault", root, "--id", "task_missing",
+      "--external-kind", "reminder", "--external-id", "REM-1",
+    );
+    assert.equal(missing.status, 1);
+    assert.match(missing.stderr, /task not found: task_missing/);
+    assert.equal(readState(
+      path.join(root, ".thirdspace", "data", "daily-agent", "tasks.json"),
+      "tasks",
+    ).tasks[0].external_ref, undefined);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("CLI task transition preserves omitted schedule fields", () => {
+  const root = fixtureVault();
+  try {
+    const task = runCli(
+      root, "task-add", "--vault", root, "--title", "Scheduled",
+      "--due", "2026-08-25", "--review-after", "2026-08-24",
+    ).task;
+
+    const completed = runCli(
+      root, "task-transition", "--vault", root, "--id", task.id, "--status", "completed",
+    ).task;
+
+    assert.equal(completed.due, "2026-08-25");
+    assert.equal(completed.review_after, "2026-08-24");
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("CLI task transition removes stale completion time when reopening", () => {
+  const root = fixtureVault();
+  try {
+    const task = runCli(root, "task-add", "--vault", root, "--title", "Reopen me").task;
+    runCli(
+      root, "task-transition", "--vault", root, "--id", task.id, "--status", "completed",
+      "--completed-at", "2026-08-22T08:30:00+08:00",
+    );
+
+    const reopened = runCli(
+      root, "task-transition", "--vault", root, "--id", task.id, "--status", "active",
+    ).task;
+
+    assert.equal(reopened.status, "active");
+    assert.equal(Object.hasOwn(reopened, "completed_at"), false);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

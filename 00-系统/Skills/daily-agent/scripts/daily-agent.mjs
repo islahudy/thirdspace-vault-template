@@ -9,7 +9,7 @@ import { confirmReadingCandidate, scanReadingInbox } from "./lib/reading.mjs";
 import { syncRemoteSources } from "./lib/remote-sync.mjs";
 import { validateReportInput, writeReview } from "./lib/reviews.mjs";
 import { mutateState } from "./lib/store.mjs";
-import { createTask, registerProject, transitionTask } from "./lib/tasks.mjs";
+import { createTask, linkTaskEventKit, registerProject, transitionTask } from "./lib/tasks.mjs";
 
 function parseArgs(argv) {
   const args = { _: [] };
@@ -104,12 +104,20 @@ function dispatch(args) {
     project_id: args["project-id"], status: args.status, review_after: args["review-after"],
     external_ref: eventKitExternalRef(args),
   }) };
-  if (command === "task-transition") return { task: transitionTask(context, args.id, args.status, {
-    confirmed: args.confirmed === true,
-    due: args.due,
-    review_after: args["review-after"],
-    completed_at: args["completed-at"],
-  }) };
+  if (command === "task-link-eventkit") {
+    const externalRef = eventKitExternalRef(args);
+    if (!externalRef) {
+      throw new Error("EventKit locator flags require --external-kind and --external-id together");
+    }
+    return { task: linkTaskEventKit(context, args.id, externalRef) };
+  }
+  if (command === "task-transition") {
+    const patch = { confirmed: args.confirmed === true };
+    if (Object.hasOwn(args, "due")) patch.due = args.due;
+    if (Object.hasOwn(args, "review-after")) patch.review_after = args["review-after"];
+    if (Object.hasOwn(args, "completed-at")) patch.completed_at = args["completed-at"];
+    return { task: transitionTask(context, args.id, args.status, patch) };
+  }
   if (command === "reading-scan") return scanReadingInbox(context);
   if (command === "reading-confirm") return { item: confirmReadingCandidate(context, args.id, args.decision) };
   if (command === "opening-complete") return completeOpening(context, { focusTaskIds: csv(args.focus) });

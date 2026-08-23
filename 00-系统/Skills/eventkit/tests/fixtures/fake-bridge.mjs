@@ -27,6 +27,38 @@ switch (mode) {
   case "invalid-shape":
     process.stdout.write(`${JSON.stringify({ data: {} })}\n`);
     break;
+  case "success-missing-data":
+    process.stdout.write(`${JSON.stringify({ success: true })}\n`);
+    break;
+  case "success-with-error":
+    process.stdout.write(`${JSON.stringify({
+      success: true,
+      data: {},
+      error: { code: "EVENTKIT_ERROR", message: "must not coexist" },
+    })}\n`);
+    break;
+  case "failure-missing-error":
+    process.stdout.write(`${JSON.stringify({ success: false })}\n`);
+    break;
+  case "failure-with-data":
+    process.stdout.write(`${JSON.stringify({
+      success: false,
+      data: {},
+      error: { code: "PERMISSION_DENIED", message: "denied" },
+    })}\n`);
+    break;
+  case "failure-code-number":
+    process.stdout.write(`${JSON.stringify({
+      success: false,
+      error: { code: 42, message: "denied" },
+    })}\n`);
+    break;
+  case "failure-message-number":
+    process.stdout.write(`${JSON.stringify({
+      success: false,
+      error: { code: "PERMISSION_DENIED", message: 42 },
+    })}\n`);
+    break;
   case "stderr":
     process.stderr.write("diagnostic output\n");
     process.stdout.write(`${JSON.stringify({ success: true, data: {} })}\n`);

@@ -31,6 +31,15 @@ function normalizeExternalRef(value) {
   };
 }
 
+export function attachEventKitLocator(task, externalRef, updatedAt) {
+  if (externalRef == null) throw new Error("invalid external_ref");
+  return {
+    ...task,
+    updated_at: updatedAt,
+    external_ref: normalizeExternalRef(externalRef),
+  };
+}
+
 function stateFile(context, name) {
   return path.join(context.vaultRoot, ".thirdspace", "data", "daily-agent", name);
 }
@@ -114,6 +123,23 @@ export function createTask(context, input) {
   return task;
 }
 
+export function linkTaskEventKit(context, id, externalRef) {
+  const file = stateFile(context, "tasks.json");
+  const current = readState(file, "tasks");
+  const index = current.tasks.findIndex((task) => task.id === id);
+  if (index === -1) throw new Error(`task not found: ${id}`);
+  const previous = current.tasks[index];
+  const task = attachEventKitLocator(previous, externalRef, context.now);
+  const tasks = current.tasks.slice();
+  tasks[index] = task;
+  mutateState(file, current.revision, (value) => ({ ...value, tasks }), context.now);
+  emit(context, "task_eventkit_linked", id, {
+    kind: task.external_ref.kind,
+    replaced: previous.external_ref !== undefined,
+  });
+  return task;
+}
+
 export function transitionTask(context, id, nextStatus, patch = {}) {
   if (!STATUSES.has(nextStatus)) throw new Error(`invalid status: ${nextStatus}`);
   if (nextStatus === "cancelled" && patch.confirmed !== true) throw new Error("confirmation required for cancellation");
@@ -123,13 +149,18 @@ export function transitionTask(context, id, nextStatus, patch = {}) {
   const index = current.tasks.findIndex((task) => task.id === id);
   if (index === -1) throw new Error(`task not found: ${id}`);
   const previous = current.tasks[index];
-  const { confirmed, completed_at, ...updates } = patch;
+  const { confirmed, completed_at, ...rawUpdates } = patch;
+  const updates = Object.fromEntries(
+    Object.entries(rawUpdates).filter(([, value]) => value !== undefined),
+  );
+  const previousWithoutCompletion = { ...previous };
+  delete previousWithoutCompletion.completed_at;
   const task = {
-    ...previous,
+    ...previousWithoutCompletion,
     ...updates,
     status: nextStatus,
     updated_at: context.now,
-    completed_at: nextStatus === "completed" ? completed_at || context.now : previous.completed_at,
+    ...(nextStatus === "completed" ? { completed_at: completed_at || context.now } : {}),
   };
   const tasks = current.tasks.slice();
   tasks[index] = task;

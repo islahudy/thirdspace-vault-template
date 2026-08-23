@@ -29,15 +29,24 @@ enum ReminderStatus: String, Codable, Equatable {
 struct ReminderQuery: Equatable {
   let status: ReminderStatus
   let listIDs: [String]?
+  let completionStart: Date?
+  let completionEnd: Date?
 
-  init(status: ReminderStatus, listIDs: [String]? = nil) {
+  init(
+    status: ReminderStatus,
+    listIDs: [String]? = nil,
+    completionStart: Date? = nil,
+    completionEnd: Date? = nil
+  ) {
     self.status = status
     self.listIDs = listIDs
+    self.completionStart = completionStart
+    self.completionEnd = completionEnd
   }
 }
 
 @MainActor protocol EventRecord: AnyObject {
-  var id: String? { get set }
+  var id: String? { get }
   var externalId: String? { get }
   var title: String { get set }
   var start: Date { get set }
@@ -196,7 +205,11 @@ enum CalendarItemRecord {
     case .incomplete:
       predicate = store.predicateForIncompleteReminders(withDueDateStarting: nil, ending: nil, calendars: calendars)
     case .completed:
-      predicate = store.predicateForCompletedReminders(withCompletionDateStarting: nil, ending: nil, calendars: calendars)
+      predicate = store.predicateForCompletedReminders(
+        withCompletionDateStarting: query.completionStart,
+        ending: query.completionEnd,
+        calendars: calendars
+      )
     }
     let result: ReminderFetchResult = try await withCheckedThrowingContinuation { continuation in
       store.fetchReminders(matching: predicate) { reminders in
@@ -261,10 +274,7 @@ private extension EventStoreSpan {
     self.store = store
   }
 
-  var id: String? {
-    get { event.eventIdentifier }
-    set { }
-  }
+  var id: String? { event.eventIdentifier }
 
   var externalId: String? {
     event.calendarItemExternalIdentifier
@@ -418,6 +428,9 @@ private enum LiveEventStoreError: Error {
   case unsupportedRecord
 }
 
+// EventKit owns these callback objects until it hands this immutable, one-shot batch to the
+// immediately scheduled MainActor task. The payload is neither read off-actor nor retained
+// beyond this request, so the unchecked conformance is limited to that ownership transfer.
 private struct ReminderFetchBatch: @unchecked Sendable {
   let payload: [EKReminder]?
 

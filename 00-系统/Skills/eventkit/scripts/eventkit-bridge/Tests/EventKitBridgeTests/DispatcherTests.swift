@@ -198,6 +198,62 @@ import Testing
     #expect(store.requestedExternalIDs.isEmpty)
   }
 
+  @Test func reminderListCarriesAbsoluteCompletionBoundsToTheStore() async throws {
+    let store = FakeDispatcherStore()
+    let dispatcher = BridgeDispatcher(store: store, permissions: FakePermissionClient())
+
+    let response = await dispatcher.dispatch(request("reminder.list", [
+      "status": .string("completed"),
+      "completionStart": .string("2026-08-23T00:00:00+08:00"),
+      "completionEnd": .string("2026-08-24T00:00:00+08:00"),
+    ]))
+
+    #expect((try responseObject(response))["success"] as? Bool == true)
+    #expect(store.lastReminderQuery == .init(
+      status: .completed,
+      completionStart: try DateCodec.parseInstant("2026-08-23T00:00:00+08:00"),
+      completionEnd: try DateCodec.parseInstant("2026-08-24T00:00:00+08:00")
+    ))
+  }
+
+  @Test func reminderListRejectsMalformedPartialAndDecreasingCompletionBoundsBeforeFetch() async throws {
+    let cases: [(String, [String: JSONValue], String)] = [
+      ("start only", [
+        "status": .string("completed"),
+        "completionStart": .string("2026-08-23T00:00:00+08:00"),
+      ], "INVALID_DATE_RANGE"),
+      ("end only", [
+        "status": .string("completed"),
+        "completionEnd": .string("2026-08-24T00:00:00+08:00"),
+      ], "INVALID_DATE_RANGE"),
+      ("decreasing", [
+        "status": .string("completed"),
+        "completionStart": .string("2026-08-24T00:00:00+08:00"),
+        "completionEnd": .string("2026-08-23T00:00:00+08:00"),
+      ], "INVALID_DATE_RANGE"),
+      ("missing timezone", [
+        "status": .string("completed"),
+        "completionStart": .string("2026-08-23T00:00:00"),
+        "completionEnd": .string("2026-08-24T00:00:00+08:00"),
+      ], "INVALID_DATE"),
+      ("wrong type", [
+        "status": .string("completed"),
+        "completionStart": .number(1),
+        "completionEnd": .string("2026-08-24T00:00:00+08:00"),
+      ], "INVALID_REQUEST"),
+    ]
+
+    for (label, params, expectedCode) in cases {
+      let store = FakeDispatcherStore()
+      let dispatcher = BridgeDispatcher(store: store, permissions: FakePermissionClient())
+
+      let response = await dispatcher.dispatch(request("reminder.list", params))
+
+      #expect(try errorCode(response) == expectedCode, "Expected \(label) to fail")
+      #expect(store.lastReminderQuery == nil, "Expected \(label) to fail before fetch")
+    }
+  }
+
   @Test func permissionServiceMapsAllEventKitStatuses() {
     let cases: [(EKAuthorizationStatus, AuthorizationState)] = [
       (.notDetermined, .notDetermined),
@@ -293,6 +349,7 @@ private func errorCode(_ response: BridgeResponse) throws -> String? {
   private(set) var calendarReadCount = 0
   private(set) var savedEventAvailabilities: [String] = []
   private(set) var requestedExternalIDs: [String] = []
+  private(set) var lastReminderQuery: ReminderQuery?
 
   func calendars() throws -> [EventCalendar] {
     calendarReadCount += 1
@@ -338,7 +395,8 @@ private func errorCode(_ response: BridgeResponse) throws -> String? {
   func defaultReminderList() -> EventCalendar? { reminderList }
 
   func reminders(matching query: ReminderQuery) async throws -> [any ReminderRecord] {
-    [reminder]
+    lastReminderQuery = query
+    return [reminder]
   }
 
   func reminder(withIdentifier identifier: String) -> (any ReminderRecord)? {
@@ -354,7 +412,7 @@ private func errorCode(_ response: BridgeResponse) throws -> String? {
 }
 
 @MainActor private final class FakeDispatcherEvent: EventRecord {
-  var id: String?
+  let id: String?
   let externalId: String? = "EXT-EVT-1"
   var title = "Planning"
   var start = Date(timeIntervalSince1970: 1_787_424_400)

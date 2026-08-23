@@ -4,7 +4,7 @@ type: "spec"
 topic: "system"
 workspace: "00-系统"
 created: "2026-08-22 00:00:00"
-modified: "2026-08-22 00:00:00"
+modified: "2026-08-23 15:30:00"
 tags: ["system", "spec", "pi-agent", "eventkit", "daily-management"]
 source: "agent"
 status: "active"
@@ -132,24 +132,26 @@ Adapter 不保存 Calendar 或 Reminder 数据。
 
 自然语言解析由 Pi 完成；Bridge 只接收绝对时间和结构化字段。
 
-创建 Apple 对象时，同时创建或更新 `tasks.json` 中的本地任务。成功后保存可选定位引用：
+创建 Apple 对象时，必须先创建或更新 `tasks.json` 中的本地任务，但不预写定位符；再创建 Calendar Event 或 Reminder。只有 Apple save 返回后，才使用 `task-link-eventkit` 把真实返回的双定位符附加或替换到已存在任务：
 
 ```json
 {
   "external_ref": {
     "provider": "eventkit",
     "kind": "reminder",
-    "id": "ABC123"
+    "id": "LOCAL-ABC123",
+    "external_id": "SERVER-ABC123"
   }
 }
 ```
 
-`external_ref` 仅用于精确定位，不构成缓存或同步数据库。Calendar/Reminder 的当前内容始终以最新 EventKit fetch 为准。
+`external_ref.id` 是 EventKit 的本地 identifier，`external_ref.external_id` 是可选的 server-provided identifier。两者仅用于精确定位，不构成缓存或同步数据库。Calendar/Reminder 的当前内容始终以最新 EventKit fetch 为准。后续读写先尝试本地 `id`；仅当本地 ID 失效时使用 `external_id` 查找。候选为零时返回 not-found，候选多于一个时返回歧义错误且不修改任何 Apple 对象。
 
 若 Apple 侧写入失败：
 
 - 保留已经成功创建的本地任务。
 - 不保存虚假的 `external_ref`。
+- 不运行 `task-link-eventkit`，所以本地任务保持 unlinked。
 - 明确报告 Apple 侧失败，并允许用户重试。
 
 ## 6. Today 数据流
@@ -158,8 +160,8 @@ Pi 执行 `today` 时按以下顺序编排：
 
 1. 调用现有 `daily-agent opening`，读取本地任务与阅读队列。
 2. 查询本地当天 `00:00` 至次日 `00:00` 的 Calendar Events。
-3. 查询未完成 Reminders 和当天完成的 Reminders。
-4. 按 `external_ref.id` 检查已关联本地任务的当前状态。
+3. 单独查询未完成 Reminders；查询当天完成 Reminders 时，将本地日精确 `[00:00, 次日 00:00)` 的两个绝对时间作为 `completionStart` / `completionEnd` 传入 EventKit 已完成谓词，不先读取无界历史再在 Node 侧过滤。
+4. 按 `external_ref.id` 优先检查已关联本地任务的当前状态；本地 ID 失效时才使用唯一 `external_ref.external_id` 匹配。
 5. 合并展示本地任务、Calendar 时间块和 Reminder。
 6. 继续现有旧事项确认、今日推进事项收集和 1～3 个重点选择。
 7. 用户确认重点后调用 `opening-complete`。
@@ -170,13 +172,13 @@ EventKit 查询失败不会阻止步骤 1、6、7；Pi 必须明确标记简报�
 
 - 关联 Reminder 已完成：自动将本地任务转换为 `completed`，并优先采用 EventKit 返回的 `completionDate` 作为完成时间。
 - Reminder 被重新打开但本地任务已经完成：不自动重开，提示用户确认。
-- EventKit 对象不存在或 ID 已失效：不删除本地任务，只报告关联失效。
+- EventKit 本地 ID 失效：使用可选 external ID 做请求内 fallback；只有唯一同类候选才接受。零候选才视为 not-found，多候选视为歧义并禁止自动选择。两个定位符都无法唯一解析时，不删除本地任务，只报告关联失效或歧义。
 - Apple App 中新建但无本地关联的 Event/Reminder：作为实时上下文展示，不自动复制到 `tasks.json`。
 
 ## 7. 编辑与确认策略
 
 - 用户明确要求创建、普通编辑、完成或重新打开时，Pi 可直接执行对应操作。
-- 更新和删除优先使用 EventKit identifier，不以标题或时间作为唯一定位条件。
+- 更新和删除优先使用 EventKit 本地 identifier，本地查找 miss 后才使用 external identifier；external 匹配必须唯一，不以标题或时间作为唯一定位条件。
 - 缺少 identifier 时，Pi 先列出候选并要求用户确认目标。
 - 删除 Calendar Event 或 Reminder 必须明确确认。
 - 循环 Calendar Event 的更新与删除必须指定 `thisEvent` 或 `futureEvents`；缺失时返回 `RECURRING_EVENT_REQUIRES_SPAN`，不得默认修改整个系列。
@@ -274,6 +276,8 @@ EventKit framework 调用通过协议边界隔离，使纯逻辑无需真实用�
 - Reminder 重开不会静默复活已完成任务。
 - 无关联 Apple 对象不会自动写入 `tasks.json`。
 - 外部写入失败不会产生无效 `external_ref`。
+- 已完成 Reminder 查询的绝对完成时间边界进入 store predicate，不读取无界完成历史。
+- 任务定位符在 Apple save 成功后才附加，并保存本地与 external 两种 identifier。
 
 ### 11.4 macOS 手工验收
 
@@ -299,4 +303,3 @@ EventKit framework 调用通过协议边界隔离，使纯逻辑无需真实用�
 - 跨设备冲突解决。
 - 自动 time blocking 或自动日程重排。
 - Calendar/Reminder 内容的长期本地缓存。
-
