@@ -1,6 +1,6 @@
 import Foundation
 
-enum JSONValue: Codable, Equatable {
+enum JSONValue: Codable, Equatable, Sendable {
   case null
   case bool(Bool)
   case number(Double)
@@ -48,12 +48,12 @@ enum JSONValue: Codable, Equatable {
   }
 }
 
-struct BridgeRequest: Codable, Equatable {
+struct BridgeRequest: Codable, Equatable, Sendable {
   let action: String
   let params: JSONValue?
 }
 
-enum BridgeErrorCode: String, Codable, Equatable {
+enum BridgeErrorCode: String, Codable, Equatable, Sendable {
   case permissionDenied = "PERMISSION_DENIED"
   case eventNotFound = "EVENT_NOT_FOUND"
   case reminderNotFound = "REMINDER_NOT_FOUND"
@@ -72,7 +72,7 @@ enum BridgeErrorCode: String, Codable, Equatable {
   case invalidBridgeResponse = "INVALID_BRIDGE_RESPONSE"
 }
 
-struct BridgeError: Codable, Equatable {
+struct BridgeError: Codable, Equatable, Sendable {
   let code: BridgeErrorCode
   let message: String
   let details: JSONValue?
@@ -84,7 +84,7 @@ struct BridgeError: Codable, Equatable {
   }
 }
 
-struct BridgeFailure: Error, Equatable {
+struct BridgeFailure: Error, Equatable, Sendable {
   let error: BridgeError
 
   init(_ error: BridgeError) {
@@ -129,35 +129,5 @@ private struct AnyEncodable: Encodable {
 
   func encode(to encoder: any Encoder) throws {
     try encodeValue(encoder)
-  }
-}
-
-enum BridgeBootstrap {
-  static func dispatcherUnavailableResponse() -> BridgeResponse {
-    .failure(.init(
-      code: .invalidRequest,
-      message: "EventKit bridge dispatcher is not installed."
-    ))
-  }
-
-  static func run() {
-    _ = FileHandle.standardInput.readDataToEndOfFile()
-
-    let response = dispatcherUnavailableResponse()
-    let fallback = Data(
-      #"{"success":false,"error":{"code":"INVALID_REQUEST","message":"EventKit bridge dispatcher is not installed."}}"#.utf8
-    )
-    let output = (try? JSONEncoder().encode(response)) ?? fallback
-
-    FileHandle.standardOutput.write(output)
-    FileHandle.standardOutput.write(Data([0x0A]))
-  }
-}
-
-// Task 5 replaces this bootstrap entry point with the dispatcher-backed main.swift.
-@main
-struct EventKitBridgeExecutable {
-  static func main() {
-    BridgeBootstrap.run()
   }
 }

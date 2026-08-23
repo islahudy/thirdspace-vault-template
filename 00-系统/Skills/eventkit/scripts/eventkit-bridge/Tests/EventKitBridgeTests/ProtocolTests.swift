@@ -31,11 +31,3 @@ import Testing
   #expect((object["error"] as? [String: Any])?["code"] as? String == "INVALID_DATE")
   #expect((object["error"] as? [String: Any])?["message"] as? String == "bad date")
 }
-
-@Test func placeholderEntrypointUsesStructuredFailure() throws {
-  let response = BridgeBootstrap.dispatcherUnavailableResponse()
-  let object = try JSONSerialization.jsonObject(with: JSONEncoder().encode(response)) as! [String: Any]
-
-  #expect(object["success"] as? Bool == false)
-  #expect((object["error"] as? [String: Any])?["code"] as? String == "INVALID_REQUEST")
-}
