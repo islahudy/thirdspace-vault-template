@@ -27,22 +27,24 @@ status: "active"
 
 不得记录 diff、文件名、文件正文、对话、prompt、命令、工具输入、凭据或环境变量转储。
 
-本服务器的推荐参数是：
+安装前必须向用户询问并确认以下参数，不得使用默认值：
 
 ```text
-source_id: 183
-event_file: /nas/users/xxxiang/person/events.ndjson
-producer_dir: ~/.local/lib/thirdspace-remote-events
+source_id:    用户指定的来源标识（仅字母、数字、`.` `_` `-`；不能是 `.` 或 `..`）
+event_file:   用户指定的绝对路径，文件名必须为 events-{source_id}.ndjson（例如 events-183.ndjson）
+producer_dir: 生产脚本安装目录，默认 ~/.local/lib/thirdspace-remote-events（可改）
 ```
+
+`event_file` 没有默认路径，必须由用户给出；文件名中的 `{source_id}` 必须与 `THIRDSPACE_SOURCE_ID` 以及事件记录中的 `source_id` 字段完全一致。
 
 最终事件必须由同目录中的 `git-post-commit.sh` 和 `agent-exit-token.sh` 生成。不要复制它们的 JSON 生成逻辑到新的 Hook 中；产品适配器只负责把 Hook 输入映射到生产脚本接受的环境变量或安全 stdin。
 
 ## 不可改变的契约
 
-1. `events.ndjson` 一行一个 JSON，只追加，不重写、不轮转、不删除历史。
+1. `events-{source_id}.ndjson` 一行一个 JSON，只追加，不重写、不轮转、不删除历史。
 2. 目录权限为 `0700`，事件文件权限为 `0600`。
 3. `THIRDSPACE_EVENT_FILE` 必须是明确的绝对路径。
-4. `THIRDSPACE_SOURCE_ID` 使用 `183`；完整值 `.` 和 `..` 禁止。
+4. `THIRDSPACE_SOURCE_ID` 使用用户提供的 source_id，且与事件文件名 `events-{source_id}.ndjson` 中的标识一致；完整值 `.` 和 `..` 禁止。
 5. Git event ID 必须保持 `source_id:git:full_commit_sha`。
 6. Token event ID 必须由稳定的 Agent 会话 ID 生成；Hook 重试不能生成新 ID。
 7. 无法取得的 Token 字段写 `null`，不得估算或调用模型补全。
@@ -65,7 +67,8 @@ command -v claude && claude --version || true
 然后确认：
 
 - 本说明、`git-post-commit.sh`、`agent-exit-token.sh` 位于同一个安装包目录。
-- `/nas/users/xxxiang/person/` 是用户指定的私有目录，不是共享可写目录或符号链接。
+- 向用户询问并确认 `source_id`、事件文件绝对路径（命名 `events-{source_id}.ndjson`）和 producer 安装目录；不得沿用示例默认值。
+- 用户指定的事件目录是私有目录，不是共享可写目录或符号链接。
 - 需要采集 Git commit 的仓库清单；不要扫描并修改所有仓库。
 - 当前 Codex/Claude Code 版本实际支持的 SessionEnd、Stop、Exit 或等价 Hook 机制和配置位置。
 - 现有配置中是否已经存在同类 Hook。
@@ -79,13 +82,14 @@ command -v claude && claude --version || true
 使用等价的安全文件操作完成：
 
 ```sh
-install -d -m 700 /nas/users/xxxiang/person
-touch /nas/users/xxxiang/person/events.ndjson
-chmod 600 /nas/users/xxxiang/person/events.ndjson
+# <EVENT_DIR>、<SOURCE_ID>、<PRODUCER_DIR> 来自安装前向用户确认的参数
+install -d -m 700 <EVENT_DIR>
+touch <EVENT_DIR>/events-<SOURCE_ID>.ndjson
+chmod 600 <EVENT_DIR>/events-<SOURCE_ID>.ndjson
 
-install -d -m 700 "$HOME/.local/lib/thirdspace-remote-events"
+install -d -m 700 <PRODUCER_DIR>
 install -m 700 git-post-commit.sh agent-exit-token.sh \
-  "$HOME/.local/lib/thirdspace-remote-events/"
+  <PRODUCER_DIR>/
 ```
 
 安装后验证生产脚本与事件目录不是符号链接，权限符合契约。
@@ -96,9 +100,9 @@ install -m 700 git-post-commit.sh agent-exit-token.sh \
 
 ```sh
 #!/bin/sh
-export THIRDSPACE_EVENT_FILE=/nas/users/xxxiang/person/events.ndjson
-export THIRDSPACE_SOURCE_ID=183
-exec "$HOME/.local/lib/thirdspace-remote-events/git-post-commit.sh"
+export THIRDSPACE_EVENT_FILE=<EVENT_DIR>/events-<SOURCE_ID>.ndjson
+export THIRDSPACE_SOURCE_ID=<SOURCE_ID>
+exec <PRODUCER_DIR>/git-post-commit.sh
 ```
 
 如果仓库已经有 `post-commit`：
@@ -118,10 +122,10 @@ exec "$HOME/.local/lib/thirdspace-remote-events/git-post-commit.sh"
 4. 调用：
 
 ```sh
-THIRDSPACE_EVENT_FILE=/nas/users/xxxiang/person/events.ndjson \
-THIRDSPACE_SOURCE_ID=183 \
+THIRDSPACE_EVENT_FILE=<EVENT_DIR>/events-<SOURCE_ID>.ndjson \
+THIRDSPACE_SOURCE_ID=<SOURCE_ID> \
 THIRDSPACE_AGENT=<codex-or-claude-code> \
-"$HOME/.local/lib/thirdspace-remote-events/agent-exit-token.sh" --stdin
+<PRODUCER_DIR>/agent-exit-token.sh --stdin
 ```
 
 生产脚本支持的白名单字段为：
@@ -149,8 +153,8 @@ cache_write_tokens, total_tokens
 ### 权限和基本格式
 
 ```sh
-stat -c '%a %n' /nas/users/xxxiang/person /nas/users/xxxiang/person/events.ndjson
-tail -n 1 /nas/users/xxxiang/person/events.ndjson | \
+stat -c '%a %n' <EVENT_DIR> <EVENT_DIR>/events-<SOURCE_ID>.ndjson
+tail -n 1 <EVENT_DIR>/events-<SOURCE_ID>.ndjson | \
   node -e 'let s="";process.stdin.on("data",b=>s+=b).on("end",()=>JSON.parse(s))'
 ```
 

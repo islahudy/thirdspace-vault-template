@@ -1,11 +1,22 @@
 {
   "version": "1.0",
-  "revision": 0,
-  "updated_at": null,
+  "revision": 4,
+  "updated_at": "2026-08-23T15:35:38.223Z",
   "last_manual_checkin": null,
   "last_daily_opening": null,
   "last_weekly_review": null,
   "last_monthly_review": null,
-  "last_remote_sync": {},
+  "last_remote_sync": {
+    "23": {
+      "synced_at": "2026-08-23T15:35:38.223Z",
+      "status": "succeeded",
+      "error": null
+    },
+    "183": {
+      "synced_at": "2026-08-23T15:35:38.223Z",
+      "status": "succeeded",
+      "error": null
+    }
+  },
   "pending_confirmations": []
 }

@@ -20,12 +20,16 @@ The scripts record metadata and aggregate counters only. They never record diffs
 
 ## Prepare a private destination
 
-Run these commands yourself on the target server. The event path must be explicit and absolute; there is no default or Vault lookup.
+Run these commands yourself on the target server. The event path must be explicit and absolute; there is no default or Vault lookup. Choose the directory yourself; when an installer Agent performs this, it must ask you for the path instead of assuming one.
+
+Event file naming is a mandatory convention: `events-{source_id}.ndjson` (for example `events-183.ndjson`). The identifier in the file name must equal the `THIRDSPACE_SOURCE_ID` exported by every wrapper and the `source_id` field written into every event record. Local sync reads exactly this pattern. The producers do not enforce the file name themselves, so keep the convention consistent.
 
 ```sh
-install -d -m 700 /nas/users/xxxiang/person
-touch /nas/users/xxxiang/person/events.ndjson
-chmod 600 /nas/users/xxxiang/person/events.ndjson
+# Replace <EVENT_DIR> with the absolute private directory you chose,
+# and <SOURCE_ID> with the source ID you assigned to this server.
+install -d -m 700 <EVENT_DIR>
+touch <EVENT_DIR>/events-<SOURCE_ID>.ndjson
+chmod 600 <EVENT_DIR>/events-<SOURCE_ID>.ndjson
 
 install -d -m 700 "$HOME/.local/lib/thirdspace-remote-events"
 install -m 700 git-post-commit.sh agent-exit-token.sh "$HOME/.local/lib/thirdspace-remote-events/"
@@ -36,22 +40,22 @@ Both producers require the event file's immediate parent to already be mode `070
 Verify permissions with either GNU or BSD/macOS `stat`:
 
 ```sh
-stat -c '%a %n' /nas/users/xxxiang/person /nas/users/xxxiang/person/events.ndjson 2>/dev/null \
-  || stat -f '%Lp %N' /nas/users/xxxiang/person /nas/users/xxxiang/person/events.ndjson
+stat -c '%a %n' <EVENT_DIR> <EVENT_DIR>/events-<SOURCE_ID>.ndjson 2>/dev/null \
+  || stat -f '%Lp %N' <EVENT_DIR> <EVENT_DIR>/events-<SOURCE_ID>.ndjson
 ```
 
 Expected modes are `700` for the directory and `600` for the file.
 
 ## Git post-commit hook
 
-Set a safe source ID containing only letters, digits, `.`, `_`, or `-`; the complete IDs `.` and `..` are forbidden. The producer reads the current commit with `git log -1 --format=%s` and `git show --numstat --format=`. It emits counts, the commit SHA, branch, repository name, and subject; it does not emit filenames or diff content.
+Set a safe source ID containing only letters, digits, `.`, `_`, or `-`; the complete IDs `.` and `..` are forbidden. The same ID must appear in the event file name (`events-<SOURCE_ID>.ndjson`) and in every event record. The producer reads the current commit with `git log -1 --format=%s` and `git show --numstat --format=`. It emits counts, the commit SHA, branch, repository name, and subject; it does not emit filenames or diff content.
 
 Create a repository-local `.git/hooks/post-commit` wrapper yourself:
 
 ```sh
 #!/bin/sh
-export THIRDSPACE_EVENT_FILE=/nas/users/xxxiang/person/events.ndjson
-export THIRDSPACE_SOURCE_ID=183
+export THIRDSPACE_EVENT_FILE=<EVENT_DIR>/events-<SOURCE_ID>.ndjson
+export THIRDSPACE_SOURCE_ID=<SOURCE_ID>
 exec "$HOME/.local/lib/thirdspace-remote-events/git-post-commit.sh"
 ```
 
@@ -78,8 +82,8 @@ Example environment-driven wrapper:
 
 ```sh
 #!/bin/sh
-export THIRDSPACE_EVENT_FILE=/nas/users/xxxiang/person/events.ndjson
-export THIRDSPACE_SOURCE_ID=183
+export THIRDSPACE_EVENT_FILE=<EVENT_DIR>/events-<SOURCE_ID>.ndjson
+export THIRDSPACE_SOURCE_ID=<SOURCE_ID>
 export THIRDSPACE_AGENT=codex
 # The Agent integration must provide a stable ID and its final session totals.
 export THIRDSPACE_SESSION_ID="$AGENT_SESSION_ID"
@@ -94,8 +98,8 @@ For a vendor's full final-session JSON, use `--stdin`. The producer extracts onl
 
 ```sh
 printf '%s' "$payload" | \
-  THIRDSPACE_EVENT_FILE=/nas/users/xxxiang/person/events.ndjson \
-  THIRDSPACE_SOURCE_ID=183 \
+  THIRDSPACE_EVENT_FILE=<EVENT_DIR>/events-<SOURCE_ID>.ndjson \
+  THIRDSPACE_SOURCE_ID=<SOURCE_ID> \
   THIRDSPACE_AGENT=claude-code \
   "$HOME/.local/lib/thirdspace-remote-events/agent-exit-token.sh" --stdin
 ```
