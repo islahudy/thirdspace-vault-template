@@ -1,8 +1,107 @@
 {
   "version": "1.0",
-  "revision": 0,
-  "updated_at": null,
-  "items": [],
+  "revision": 4,
+  "updated_at": "2026-09-06T09:08:31.935Z",
+  "items": [
+    {
+      "id": "reading_b7186b7e6fed",
+      "kind": "paper",
+      "title": "EmbodiedSkills: A Unified Framework for Orchestrating, Training, and Deploying VLA Agents",
+      "source_path": "01-收件箱/网页剪藏/EmbodiedSkills A Unified Framework for Orchestrating, Training, and Deploying VLA Agents.md",
+      "url": "https://arxiv.org/html/2609.01281v1",
+      "tags": [
+        "paper"
+      ],
+      "status": "processed",
+      "added_at": "2026-09-03T06:36:06.435Z",
+      "processed_at": "2026-09-06T09:08:31.935Z",
+      "output_path": "03-知识/论文笔记/EmbodiedSkills- A Unified Framework for Orchestrating, Training, and Deploying V.md"
+    },
+    {
+      "id": "reading_f96ba6806112",
+      "kind": "blog",
+      "title": "Running a Software Factory Efficiently at Uber Scale",
+      "source_path": "01-收件箱/网页剪藏/Running a Software Factory Efficiently at Uber Scale.md",
+      "url": "https://www.uber.com/ca/en/blog/efficient-software-factory/?utm_source=chatgpt.com",
+      "tags": [
+        "blog"
+      ],
+      "status": "processed",
+      "added_at": "2026-09-03T06:36:06.435Z",
+      "processed_at": "2026-09-06T09:08:31.935Z",
+      "output_path": "03-知识/论文笔记/Running a Software Factory Efficiently at Uber Scale.md"
+    },
+    {
+      "id": "reading_b0215e633c39",
+      "kind": "paper",
+      "title": "TrAct: Bridging Robot Control and Visual Prediction with Visual Tracks",
+      "source_path": "01-收件箱/网页剪藏/TrAct Bridging Robot Control and Visual Prediction with Visual Tracks.md",
+      "url": "https://arxiv.org/html/2608.24101",
+      "tags": [
+        "paper"
+      ],
+      "status": "processed",
+      "added_at": "2026-09-03T06:36:06.435Z",
+      "processed_at": "2026-09-06T09:08:31.935Z",
+      "output_path": "03-知识/论文笔记/TrAct- Bridging Robot Control and Visual Prediction with Visual Tracks.md"
+    },
+    {
+      "id": "reading_df47ba7a3a34",
+      "kind": "paper",
+      "title": "AGM: Achievement-Grounded Memory for Closed-Loop Agents with Frozen VLA Policies",
+      "source_path": "01-收件箱/网页剪藏/AGM Achievement-Grounded Memory for Closed-Loop Agents with Frozen VLA Policies.md",
+      "url": null,
+      "tags": [
+        "paper"
+      ],
+      "status": "processed",
+      "added_at": "2026-09-06T06:58:38.388Z",
+      "processed_at": "2026-09-06T09:08:31.935Z",
+      "output_path": "03-知识/论文笔记/AGM- Achievement-Grounded Memory for Closed-Loop Agents with Frozen VLA Policies.md"
+    },
+    {
+      "id": "reading_110b14881882",
+      "kind": "paper",
+      "title": "Cortex: A Bidirectionally Aligned Embodied Agent Framework for Long-horizon Manipulation",
+      "source_path": "01-收件箱/网页剪藏/Cortex A Bidirectionally Aligned Embodied Agent Framework for Long-horizon Manipulation.md",
+      "url": null,
+      "tags": [
+        "paper"
+      ],
+      "status": "processed",
+      "added_at": "2026-09-06T06:58:38.388Z",
+      "processed_at": "2026-09-06T09:08:31.935Z",
+      "output_path": "03-知识/论文笔记/Cortex- A Bidirectionally Aligned Embodied Agent Framework for Long-horizon Mani.md"
+    },
+    {
+      "id": "reading_a08b8f97c531",
+      "kind": "paper",
+      "title": "RoboMME: Benchmarking and Understanding Memory for Robotic Generalist Policies",
+      "source_path": "01-收件箱/网页剪藏/RoboMME Benchmarking and Understanding Memory for Robotic Generalist Policies.md",
+      "url": null,
+      "tags": [
+        "paper"
+      ],
+      "status": "processed",
+      "added_at": "2026-09-06T06:58:38.388Z",
+      "processed_at": "2026-09-06T09:08:31.935Z",
+      "output_path": "03-知识/论文笔记/RoboMME- Benchmarking and Understanding Memory for Robotic Generalist Policies.md"
+    },
+    {
+      "id": "reading_29c3a0c1a25b",
+      "kind": "paper",
+      "title": "What Matters in Orchestrating Robot Policies: A Systematic Study of Hierarchical VLA Agents",
+      "source_path": "01-收件箱/网页剪藏/What Matters in Orchestrating Robot Policies A Systematic Study of Hierarchical VLA Agents.md",
+      "url": null,
+      "tags": [
+        "paper"
+      ],
+      "status": "processed",
+      "added_at": "2026-09-06T06:58:38.388Z",
+      "processed_at": "2026-09-06T09:08:31.935Z",
+      "output_path": "03-知识/论文笔记/What Matters in Orchestrating Robot Policies- A Systematic Study of Hierarchical.md"
+    }
+  ],
   "candidates": [],
   "dismissed_source_paths": []
 }

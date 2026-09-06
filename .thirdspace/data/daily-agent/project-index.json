@@ -1,6 +1,17 @@
 {
   "version": "1.0",
-  "revision": 0,
-  "updated_at": null,
-  "projects": []
+  "revision": 1,
+  "updated_at": "2026-08-28T08:20:02.492Z",
+  "projects": [
+    {
+      "id": "b1k-2026-challenge",
+      "name": "b1k-2026-challenge",
+      "path": "04-项目/202608271529_b1k-2026-challenge",
+      "status": "active",
+      "stage": "active",
+      "repo_mappings": [],
+      "last_activity_at": null,
+      "last_reviewed_at": null
+    }
+  ]
 }

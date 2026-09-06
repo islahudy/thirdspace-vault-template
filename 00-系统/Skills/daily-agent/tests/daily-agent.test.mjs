@@ -16,6 +16,12 @@ import {
   transitionTask,
 } from "../scripts/lib/tasks.mjs";
 import { confirmReadingCandidate, scanReadingInbox } from "../scripts/lib/reading.mjs";
+import {
+  injectNotePlaceholders,
+  migrateProcessedItems,
+  renderReadingList,
+  runReadingScanFlow,
+} from "../scripts/lib/reading-flow.mjs";
 import { completeOpening, prepareOpening } from "../scripts/lib/opening.mjs";
 
 function temporaryVault() {
@@ -746,6 +752,117 @@ test("CLI exposes opening, project, task, reading, and completion commands", () 
     const completed = runCli(root, "opening-complete", "--vault", root, "--focus", created.task.id);
     assert.equal(completed.state.last_daily_opening, "2026-08-22");
     assert.equal(runCli(root, "opening", "--vault", root).required, false);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+function clipboardFixture({ title, tags, kind, url = "" }) {
+  const body = title + (url ? " " + url : "");
+  return `---\ntitle: "${title}"\ntype: "clipping"\ntopic: "ai"\nworkspace: "01-收件箱"\ncreated: "2026-08-22 08:00:00"\nmodified: "2026-08-22 08:00:00"\ntags: [${tags.join(", ")}]\nsource: "obsidian-clipper"\nstatus: "draft"\nurl: "${url}"\n---\n\n# ${title}\n\n${body}\n`;
+}
+
+test("reading-inject is idempotent and preserves existing source body", () => {
+  const root = fixtureVault();
+  try {
+    const inbox = path.join(root, "01-收件箱", "网页剪藏");
+    fs.mkdirSync(inbox, { recursive: true });
+    const file = path.join(inbox, "20260822_paper.md");
+    fs.writeFileSync(file, clipboardFixture({ title: "Paper", tags: ["paper"], kind: "paper", url: "https://example.com/p" }));
+    const context = testContext(root);
+    scanReadingInbox(context);
+    const first = injectNotePlaceholders(context);
+    assert.equal(first.injected.length, 1);
+    assert.equal(first.skipped.length, 0);
+    const injected = fs.readFileSync(file, "utf8");
+    assert.match(injected, /<!-- reading-placeholder:paper -->/);
+    const bodyAnchor = injected.indexOf("# Paper");
+    assert.ok(bodyAnchor > 0);
+    const second = injectNotePlaceholders(context);
+    assert.equal(second.injected.length, 0);
+    assert.equal(second.skipped.length, 1);
+    assert.equal(second.skipped[0].reason, "already injected");
+    assert.equal(fs.readFileSync(file, "utf8"), injected);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("checklist rerender preserves existing ticks when items change", () => {
+  const root = fixtureVault();
+  try {
+    const inbox = path.join(root, "01-收件箱", "网页剪藏");
+    fs.mkdirSync(inbox, { recursive: true });
+    const paperA = path.join(inbox, "20260822_alpha.md");
+    const paperB = path.join(inbox, "20260822_beta.md");
+    fs.writeFileSync(paperA, clipboardFixture({ title: "Alpha", tags: ["paper"], kind: "paper", url: "https://example.com/a" }));
+    fs.writeFileSync(paperB, clipboardFixture({ title: "Beta", tags: ["paper"], kind: "paper", url: "https://example.com/b" }));
+    const context = testContext(root);
+    scanReadingInbox(context);
+    injectNotePlaceholders(context);
+    const first = renderReadingList(context);
+    assert.equal(first.paper_count, 2);
+    const checklist = path.join(root, first.path);
+    let md = fs.readFileSync(checklist, "utf8");
+    md = md.replace(
+      "## paper（待阅读）\n\n- [ ] [[01-收件箱/网页剪藏/20260822_alpha.md|Alpha]]",
+      "## paper（待阅读）\n\n- [x] [[01-收件箱/网页剪藏/20260822_alpha.md|Alpha]]",
+    );
+    fs.writeFileSync(checklist, md, "utf8");
+    const second = renderReadingList(context);
+    assert.equal(second.paper_count, 2);
+    const after = fs.readFileSync(checklist, "utf8");
+    assert.match(after, /- \[x\] \[\[01-收件箱\/网页剪藏\/20260822_alpha\.md\|Alpha\]\]/);
+    assert.match(after, /- \[ \] \[\[01-收件箱\/网页剪藏\/20260822_beta\.md\|Beta\]\]/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("reading-migrate --dry-run reports plan without moving files or mutating queue", () => {
+  const root = fixtureVault();
+  try {
+    const inbox = path.join(root, "01-收件箱", "网页剪藏");
+    fs.mkdirSync(inbox, { recursive: true });
+    const source = path.join(inbox, "20260822_paper.md");
+    fs.writeFileSync(source, clipboardFixture({ title: "Paper", tags: ["paper"], kind: "paper", url: "https://example.com/p" }));
+    const context = testContext(root);
+    scanReadingInbox(context);
+    injectNotePlaceholders(context);
+    const list = renderReadingList(context);
+    const checklist = path.join(root, list.path);
+    let md = fs.readFileSync(checklist, "utf8");
+    md = md.replace("- [ ] [[01-收件箱", "- [x] [[01-收件箱");
+    fs.writeFileSync(checklist, md, "utf8");
+    const queueBefore = readState(path.join(root, ".thirdspace", "data", "daily-agent", "reading-queue.json"), "items");
+    const result = migrateProcessedItems(context, { dryRun: true });
+    assert.equal(result.dry_run, true);
+    assert.equal(result.migrated.length, 1);
+    assert.match(result.migrated[0].target_path, /^03-知识\/论文笔记\/20260822_Paper\.md$/);
+    assert.ok(fs.existsSync(source), "source must remain on disk during dry run");
+    assert.equal(fs.existsSync(path.join(root, "03-知识", "论文笔记", "20260822_Paper.md")), false);
+    const queueAfter = readState(path.join(root, ".thirdspace", "data", "daily-agent", "reading-queue.json"), "items");
+    assert.equal(queueAfter.revision, queueBefore.revision);
+    assert.equal(queueAfter.items[0].status, "pending");
+    assert.equal(queueAfter.items[0].output_path, null);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("reading-scan composes scan + inject + list in one CLI call", () => {
+  const root = fixtureVault();
+  try {
+    const inbox = path.join(root, "01-收件箱", "网页剪藏");
+    fs.mkdirSync(inbox, { recursive: true });
+    fs.writeFileSync(path.join(inbox, "20260822_paper.md"), clipboardFixture({ title: "Paper", tags: ["paper"], kind: "paper", url: "https://example.com/p" }));
+    fs.writeFileSync(path.join(inbox, "20260822_blog.md"), clipboardFixture({ title: "Blog", tags: ["blog"], kind: "blog", url: "https://example.com/b" }));
+    const result = runCli(root, "reading-scan", "--vault", root);
+    assert.equal(result.added.length, 2);
+    assert.equal(result.inject.injected.length, 2);
+    assert.equal(result.checklist.paper_count, 1);
+    assert.equal(result.checklist.blog_count, 1);
+    assert.ok(fs.existsSync(path.join(root, result.checklist.path)));
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

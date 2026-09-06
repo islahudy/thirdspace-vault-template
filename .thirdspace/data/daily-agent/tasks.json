@@ -1,6 +1,132 @@
 {
   "version": "1.0",
-  "revision": 0,
-  "updated_at": null,
-  "tasks": []
+  "revision": 12,
+  "updated_at": "2026-09-05T03:18:15.104Z",
+  "tasks": [
+    {
+      "id": "task_20260827080704_03d57a2c",
+      "title": "阅读推荐的 blog",
+      "status": "completed",
+      "priority": "normal",
+      "due": "2026-08-29",
+      "review_after": null,
+      "tags": [
+        "blog",
+        "reading"
+      ],
+      "project_id": null,
+      "created_at": "2026-08-27T08:07:04.450Z",
+      "updated_at": "2026-09-05T03:08:31.325Z",
+      "source": "pi-agent",
+      "completed_at": "2026-09-05T03:08:31.325Z"
+    },
+    {
+      "id": "task_20260827080704_6319918b",
+      "title": "完成 zju-connect 的分流规则构建",
+      "status": "active",
+      "priority": "normal",
+      "due": "2026-09-12",
+      "review_after": null,
+      "tags": [
+        "infra",
+        "zju-connect"
+      ],
+      "project_id": null,
+      "created_at": "2026-08-27T08:07:04.481Z",
+      "updated_at": "2026-09-05T03:18:02.792Z",
+      "source": "pi-agent"
+    },
+    {
+      "id": "task_20260828082017_1b798c35",
+      "title": "实现消除相机运动的 toy setting (b1k exp3)",
+      "status": "active",
+      "priority": "high",
+      "due": null,
+      "review_after": null,
+      "tags": [
+        "b1k",
+        "exp3",
+        "research",
+        "se3",
+        "decoupling"
+      ],
+      "project_id": null,
+      "created_at": "2026-08-28T08:20:17.737Z",
+      "updated_at": "2026-08-28T08:28:15.984Z",
+      "source": "pi-agent",
+      "external_ref": {
+        "provider": "eventkit",
+        "kind": "reminder",
+        "id": "FE64787C-1F6C-4EBF-88B4-5B463EDC6C59",
+        "external_id": "FE64787C-1F6C-4EBF-88B4-5B463EDC6C59"
+      }
+    },
+    {
+      "id": "task_20260905030850_dcebcf2b",
+      "title": "调研具身领域的分布式智能：分层定义 + 可验证 toy setting 设计",
+      "status": "active",
+      "priority": "high",
+      "due": null,
+      "review_after": null,
+      "tags": [
+        "research",
+        "embodied-ai",
+        "distributed-intel",
+        "idea"
+      ],
+      "project_id": null,
+      "created_at": "2026-09-05T03:08:50.366Z",
+      "updated_at": "2026-09-05T03:11:32.359Z",
+      "completed_at": null,
+      "source": "pi-agent",
+      "external_ref": {
+        "provider": "eventkit",
+        "kind": "reminder",
+        "id": "7A25ACBC-F9E6-40D8-BD9A-398432223F50",
+        "external_id": "7A25ACBC-F9E6-40D8-BD9A-398432223F50"
+      }
+    },
+    {
+      "id": "task_20260905031804_2b7e3269",
+      "title": "学习配置 zellij",
+      "status": "active",
+      "priority": "normal",
+      "due": null,
+      "review_after": null,
+      "tags": [
+        "infra",
+        "tooling"
+      ],
+      "project_id": null,
+      "created_at": "2026-09-05T03:18:04.418Z",
+      "updated_at": "2026-09-05T03:18:15.104Z",
+      "completed_at": null,
+      "source": "pi-agent",
+      "external_ref": {
+        "provider": "eventkit",
+        "kind": "reminder",
+        "id": "0C2CF0B5-8F3C-449D-B36D-813E6F04777C",
+        "external_id": "0C2CF0B5-8F3C-449D-B36D-813E6F04777C"
+      }
+    },
+    {
+      "id": "task_20260905031806_41526a61",
+      "title": "修复 daily-agent.mjs 的并发写入 race（store.mjs 临时文件 rename 互相覆盖）",
+      "status": "active",
+      "priority": "high",
+      "due": null,
+      "review_after": null,
+      "tags": [
+        "skill",
+        "bug",
+        "daily-agent",
+        "store"
+      ],
+      "project_id": null,
+      "created_at": "2026-09-05T03:18:06.784Z",
+      "updated_at": "2026-09-05T03:18:06.784Z",
+      "completed_at": null,
+      "source": "pi-agent"
+    }
+  ]
 }

@@ -1,9 +1,9 @@
 {
   "version": "1.0",
-  "revision": 4,
-  "updated_at": "2026-08-23T15:35:38.223Z",
-  "last_manual_checkin": null,
-  "last_daily_opening": null,
+  "revision": 6,
+  "updated_at": "2026-09-05T03:08:56.422Z",
+  "last_manual_checkin": "2026-09-05T03:08:56.422Z",
+  "last_daily_opening": "2026-09-05",
   "last_weekly_review": null,
   "last_monthly_review": null,
   "last_remote_sync": {
@@ -18,5 +18,31 @@
       "error": null
     }
   },
-  "pending_confirmations": []
+  "pending_confirmations": [
+    {
+      "id": "anomaly_reading_migrate_strip_user_notes_20260906",
+      "kind": "anomaly",
+      "created_at": "2026-09-06T09:08:31.935Z",
+      "subject": "reading-migrate 吞掉用户笔记 + 命名带日期前缀 + frontmatter 与 03-知识 规范不一致",
+      "description": "Agent 在 2026-09-06 调用 `reading-migrate` 时未先与主人确认，也未指定 `--dry-run`，且当时使用的脚本版本存在三个已知问题：(1) `stripInjectedPlaceholder` 在 `<!-- reading-placeholder:... -->` 标记之后用 `\\n---` 作为终止符，会把所有用户填写的 `## Summary / ## Key Points / ## Review / ## My Takeaways` 区段一起删掉；(2) `destinationPath` 给文件名加了 `YYYYMMDD_` 前缀，违反主人对 03-知识/论文笔记/ 的命名偏好（直接用文章名）；(3) `buildThirdSpaceFrontmatter` 输出 `modified` 为完整 ISO 时间戳、缺 `reviewed_at`、缺 `origin` 块、多余顶层 `source_path`，与 03-知识/WORKSPACE.md 和已有参考笔记（如 `Introducing S1...`）的格式不一致。",
+      "affected_items": [
+        "reading_b7186b7e6fed (EmbodiedSkills)",
+        "reading_f96ba6806112 (Uber Software Factory)",
+        "reading_b0215e633c39 (TrAct)",
+        "reading_df47ba7a3a34 (AGM)",
+        "reading_110b14881882 (Cortex)",
+        "reading_a08b8f97c531 (RoboMME)",
+        "reading_29c3a0c1a25b (What Matters in Orchestrating Robot Policies)"
+      ],
+      "data_loss": {
+        "scope": "7 个源文件的 `## Summary / ## Key Points / ## Review / ## My Takeaways` 区段全部丢失（inbox 已 gitignore，从未提交；stash/reflog 均无备份）",
+        "recovery": "主人需手动补写或重读这 7 篇；Agent 无法恢复这部分内容"
+      },
+      "resolution": {
+        "script_fix_applied": "reading-flow.mjs：stripInjectedPlaceholder 改为保留全文（不删用户区段）；destinationPath 去掉 YYYYMMDD_ 前缀；buildThirdSpaceFrontmatter 改为 date-only modified + reviewed_at + origin 块 + 去掉冗余 source_path。",
+        "files_recovered": "已在 2026-09-06 后续手动重命名 7 个 03-知识/论文笔记/ 文件并重建 frontmatter。",
+        "outstanding": "主人需自行补写丢失的阅读笔记。"
+      }
+    }
+  ]
 }

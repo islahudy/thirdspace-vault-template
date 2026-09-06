@@ -26,12 +26,26 @@ function parseFrontmatter(markdown) {
   if (!markdown.startsWith("---\n")) return {};
   const end = markdown.indexOf("\n---", 4);
   if (end === -1) return {};
+  const lines = markdown.slice(4, end).split("\n");
   const meta = {};
-  for (const line of markdown.slice(4, end).split("\n")) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     const match = line.match(/^([A-Za-z0-9_-]+):\s*(.*)$/);
     if (!match) continue;
+    const key = match[1];
     const value = match[2].trim();
-    meta[match[1]] = value.startsWith("[") && value.endsWith("]")
+    if (value === "") {
+      const list = [];
+      while (i + 1 < lines.length) {
+        const itemMatch = lines[i + 1].match(/^\s*-\s*(.*)$/);
+        if (!itemMatch) break;
+        list.push(parseScalar(itemMatch[1]));
+        i++;
+      }
+      meta[key] = list.length > 0 ? list : "";
+      continue;
+    }
+    meta[key] = value.startsWith("[") && value.endsWith("]")
       ? value.slice(1, -1).split(",").map(parseScalar).filter(Boolean)
       : parseScalar(value);
   }
@@ -85,7 +99,14 @@ export function scanReadingInbox(context) {
         result.processed.push(existing);
         emit(context, "reading_processed", existing.id, { source_path: sourcePath });
         changed = true;
-      } else result.unchanged.push(existing);
+      } else {
+        if (url && !existing.url) {
+          existing.url = url;
+          emit(context, "reading_url_backfilled", existing.id, { source_path: sourcePath, url });
+          changed = true;
+        }
+        result.unchanged.push(existing);
+      }
       continue;
     }
     if (explicitKind) {

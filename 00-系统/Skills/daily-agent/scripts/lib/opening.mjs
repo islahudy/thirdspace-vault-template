@@ -2,7 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { appendEvent, makeEventId } from "./events.mjs";
-import { scanReadingInbox } from "./reading.mjs";
+import { gitSyncVault } from "./git-sync.mjs";
+import { runReadingScanFlow } from "./reading-flow.mjs";
 import { mutateState, readState } from "./store.mjs";
 import { listOpeningTasks } from "./tasks.mjs";
 
@@ -71,7 +72,7 @@ export function prepareOpening(context) {
     required: true,
     date,
     tasks: listOpeningTasks(tasks, context.now),
-    reading: scanReadingInbox(context),
+    reading: runReadingScanFlow(context),
     prompts: {
       completionReview: "昨天及更早的事项中，哪些已经完成、取消或需要等待？",
       todayPlan: "今天准备推进什么？请选择 1～3 个今日重点。",
@@ -113,5 +114,6 @@ export function completeOpening(context, input) {
     focus_task_ids: focusTaskIds,
     worklog_path: path.relative(context.vaultRoot, file),
   }).event;
-  return { state, worklogPath: file, event };
+  const gitSync = gitSyncVault(context);
+  return { state, worklogPath: file, event, git_sync: gitSync };
 }

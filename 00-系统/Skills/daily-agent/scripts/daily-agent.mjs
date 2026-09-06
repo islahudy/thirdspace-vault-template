@@ -5,7 +5,13 @@ import path from "node:path";
 import { aggregateReport } from "./lib/aggregator.mjs";
 import { completeOpening, prepareOpening } from "./lib/opening.mjs";
 import { normalizeEvents } from "./lib/normalizer.mjs";
-import { confirmReadingCandidate, scanReadingInbox } from "./lib/reading.mjs";
+import { confirmReadingCandidate } from "./lib/reading.mjs";
+import {
+  injectNotePlaceholders,
+  migrateProcessedItems,
+  renderReadingList,
+  runReadingScanFlow,
+} from "./lib/reading-flow.mjs";
 import { syncRemoteSources } from "./lib/remote-sync.mjs";
 import { validateReportInput, writeReview } from "./lib/reviews.mjs";
 import { mutateState } from "./lib/store.mjs";
@@ -118,8 +124,14 @@ function dispatch(args) {
     if (Object.hasOwn(args, "completed-at")) patch.completed_at = args["completed-at"];
     return { task: transitionTask(context, args.id, args.status, patch) };
   }
-  if (command === "reading-scan") return scanReadingInbox(context);
+  if (command === "reading-scan") return runReadingScanFlow(context, { date: args.date });
   if (command === "reading-confirm") return { item: confirmReadingCandidate(context, args.id, args.decision) };
+  if (command === "reading-inject") return injectNotePlaceholders(context);
+  if (command === "reading-list") return renderReadingList(context, { date: args.date });
+  if (command === "reading-migrate") return migrateProcessedItems(context, {
+    date: args.date,
+    dryRun: args["dry-run"] === true,
+  });
   if (command === "opening-complete") return completeOpening(context, { focusTaskIds: csv(args.focus) });
   if (command === "remote-sync") {
     const configPath = args.config || ".thirdspace/config/remote-event-sources.local.yaml";
