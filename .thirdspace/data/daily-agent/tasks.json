@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "revision": 12,
-  "updated_at": "2026-09-05T03:18:15.104Z",
+  "revision": 20,
+  "updated_at": "2026-09-21T05:29:02.481Z",
   "tasks": [
     {
       "id": "task_20260827080704_03d57a2c",
@@ -23,7 +23,7 @@
     {
       "id": "task_20260827080704_6319918b",
       "title": "完成 zju-connect 的分流规则构建",
-      "status": "active",
+      "status": "completed",
       "priority": "normal",
       "due": "2026-09-12",
       "review_after": null,
@@ -33,13 +33,14 @@
       ],
       "project_id": null,
       "created_at": "2026-08-27T08:07:04.481Z",
-      "updated_at": "2026-09-05T03:18:02.792Z",
-      "source": "pi-agent"
+      "updated_at": "2026-09-16T06:43:14.470Z",
+      "source": "pi-agent",
+      "completed_at": "2026-09-16T06:30:00+08:00"
     },
     {
       "id": "task_20260828082017_1b798c35",
       "title": "实现消除相机运动的 toy setting (b1k exp3)",
-      "status": "active",
+      "status": "completed",
       "priority": "high",
       "due": null,
       "review_after": null,
@@ -52,21 +53,22 @@
       ],
       "project_id": null,
       "created_at": "2026-08-28T08:20:17.737Z",
-      "updated_at": "2026-08-28T08:28:15.984Z",
+      "updated_at": "2026-09-16T06:43:20.391Z",
       "source": "pi-agent",
       "external_ref": {
         "provider": "eventkit",
         "kind": "reminder",
         "id": "FE64787C-1F6C-4EBF-88B4-5B463EDC6C59",
         "external_id": "FE64787C-1F6C-4EBF-88B4-5B463EDC6C59"
-      }
+      },
+      "completed_at": "2026-09-16T06:30:00+08:00"
     },
     {
       "id": "task_20260905030850_dcebcf2b",
       "title": "调研具身领域的分布式智能：分层定义 + 可验证 toy setting 设计",
-      "status": "active",
+      "status": "waiting",
       "priority": "high",
-      "due": null,
+      "due": "2026-10-10",
       "review_after": null,
       "tags": [
         "research",
@@ -76,8 +78,7 @@
       ],
       "project_id": null,
       "created_at": "2026-09-05T03:08:50.366Z",
-      "updated_at": "2026-09-05T03:11:32.359Z",
-      "completed_at": null,
+      "updated_at": "2026-09-21T05:17:57.969Z",
       "source": "pi-agent",
       "external_ref": {
         "provider": "eventkit",
@@ -89,7 +90,7 @@
     {
       "id": "task_20260905031804_2b7e3269",
       "title": "学习配置 zellij",
-      "status": "active",
+      "status": "completed",
       "priority": "normal",
       "due": null,
       "review_after": null,
@@ -99,20 +100,20 @@
       ],
       "project_id": null,
       "created_at": "2026-09-05T03:18:04.418Z",
-      "updated_at": "2026-09-05T03:18:15.104Z",
-      "completed_at": null,
+      "updated_at": "2026-09-16T06:43:20.425Z",
       "source": "pi-agent",
       "external_ref": {
         "provider": "eventkit",
         "kind": "reminder",
         "id": "0C2CF0B5-8F3C-449D-B36D-813E6F04777C",
         "external_id": "0C2CF0B5-8F3C-449D-B36D-813E6F04777C"
-      }
+      },
+      "completed_at": "2026-09-16T06:30:00+08:00"
     },
     {
       "id": "task_20260905031806_41526a61",
       "title": "修复 daily-agent.mjs 的并发写入 race（store.mjs 临时文件 rename 互相覆盖）",
-      "status": "active",
+      "status": "completed",
       "priority": "high",
       "due": null,
       "review_after": null,
@@ -124,7 +125,47 @@
       ],
       "project_id": null,
       "created_at": "2026-09-05T03:18:06.784Z",
-      "updated_at": "2026-09-05T03:18:06.784Z",
+      "updated_at": "2026-09-16T06:43:20.454Z",
+      "source": "pi-agent",
+      "completed_at": "2026-09-16T06:30:00+08:00"
+    },
+    {
+      "id": "task_20260921052902_e6707999",
+      "title": "brain-cerebellum-coupling: brief.md 落版 v1（核心问题 + 边界）",
+      "status": "active",
+      "priority": "high",
+      "due": null,
+      "review_after": null,
+      "tags": [
+        "research",
+        "cap",
+        "vla",
+        "brain-cerebellum",
+        "project"
+      ],
+      "project_id": "brain-cerebellum-coupling",
+      "created_at": "2026-09-21T05:29:02.448Z",
+      "updated_at": "2026-09-21T05:29:02.448Z",
+      "completed_at": null,
+      "source": "pi-agent"
+    },
+    {
+      "id": "task_20260921052902_1950af8d",
+      "title": "brain-cerebellum-coupling: plan.md 落版 v1（active / 已收敛 / idea 池 / 待对齐）",
+      "status": "active",
+      "priority": "normal",
+      "due": null,
+      "review_after": null,
+      "tags": [
+        "research",
+        "cap",
+        "vla",
+        "brain-cerebellum",
+        "project"
+      ],
+      "project_id": "brain-cerebellum-coupling",
+      "created_at": "2026-09-21T05:29:02.481Z",
+      "updated_at": "2026-09-21T05:29:02.481Z",
       "completed_at": null,
       "source": "pi-agent"
     }

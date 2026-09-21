@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "revision": 4,
-  "updated_at": "2026-09-06T09:08:31.935Z",
+  "revision": 22,
+  "updated_at": "2026-09-21T05:18:26.443Z",
   "items": [
     {
       "id": "reading_b7186b7e6fed",
@@ -100,6 +100,524 @@
       "added_at": "2026-09-06T06:58:38.388Z",
       "processed_at": "2026-09-06T09:08:31.935Z",
       "output_path": "03-知识/论文笔记/What Matters in Orchestrating Robot Policies- A Systematic Study of Hierarchical.md"
+    },
+    {
+      "id": "reading_fb07fade861d",
+      "kind": "paper",
+      "title": "Spatially Aware World Action Model via Geometric Latent Diffusion",
+      "source_path": "01-收件箱/网页剪藏/Spatially Aware World Action Model via Geometric Latent Diffusion.md",
+      "url": null,
+      "tags": [
+        "paper"
+      ],
+      "status": "processed",
+      "added_at": "2026-09-07T08:23:25.897Z",
+      "processed_at": "2026-09-07T09:47:05.562Z",
+      "output_path": "03-知识/论文笔记/Spatially Aware World Action Model via Geometric Latent Diffusion.md"
+    },
+    {
+      "id": "reading_f5ef8783acc4",
+      "kind": "paper",
+      "title": "ZimaBlue: Evolving Generalizable World Action Models through Scalable Video Pre-training",
+      "source_path": "01-收件箱/网页剪藏/ZimaBlue Evolving Generalizable World Action Models through Scalable Video Pre-training.md",
+      "url": null,
+      "tags": [
+        "paper"
+      ],
+      "status": "processed",
+      "added_at": "2026-09-07T08:23:25.897Z",
+      "processed_at": "2026-09-07T09:47:05.562Z",
+      "output_path": "03-知识/论文笔记/ZimaBlue- Evolving Generalizable World Action Models through Scalable Video Pre-.md"
+    },
+    {
+      "id": "reading_2799871de693",
+      "kind": "paper",
+      "title": "Attention Sink Forges Native MoE in Attention Layers: Sink-Aware Training to Address Head Collapse",
+      "source_path": "01-收件箱/网页剪藏/Attention Sink Forges Native MoE in Attention Layers Sink-Aware Training to Address Head Collapse.md",
+      "url": null,
+      "tags": [
+        "paper"
+      ],
+      "status": "processed",
+      "added_at": "2026-09-09T06:07:45.634Z",
+      "processed_at": "2026-09-09T12:58:45.782Z",
+      "output_path": "03-知识/论文笔记/Attention Sink Forges Native MoE in Attention Layers- Sink-Aware Training to Add.md"
+    },
+    {
+      "id": "reading_f3f6517dac6c",
+      "kind": "paper",
+      "title": "Mage — A Lightweight, Research-Friendly Multimodal Model Family",
+      "source_path": "01-收件箱/网页剪藏/Mage — A Lightweight, Research-Friendly Multimodal Model Family.md",
+      "url": null,
+      "tags": [
+        "paper"
+      ],
+      "status": "processed",
+      "added_at": "2026-09-09T06:07:45.634Z",
+      "processed_at": "2026-09-09T12:58:45.782Z",
+      "output_path": "03-知识/论文笔记/Mage — A Lightweight, Research-Friendly Multimodal Model Family.md"
+    },
+    {
+      "id": "reading_0941cc53cbdb",
+      "kind": "blog",
+      "title": "SFT, RL, and On-Policy Distillation Through a Distributional Lens",
+      "source_path": "01-收件箱/网页剪藏/SFT, RL, and On-Policy Distillation Through a Distributional Lens.md",
+      "url": null,
+      "tags": [
+        "blog"
+      ],
+      "status": "processed",
+      "added_at": "2026-09-09T06:07:45.634Z",
+      "processed_at": "2026-09-09T12:58:45.782Z",
+      "output_path": "03-知识/论文笔记/SFT, RL, and On-Policy Distillation Through a Distributional Lens.md"
+    },
+    {
+      "id": "reading_4c1b0e6fadad",
+      "kind": "blog",
+      "title": "On Next-Gen Transformer: Loops Are Not What You Need",
+      "source_path": "01-收件箱/网页剪藏/On Next-Gen Transformer Loops Are Not What You Need.md",
+      "url": null,
+      "tags": [
+        "blog"
+      ],
+      "status": "processed",
+      "added_at": "2026-09-09T07:54:53.227Z",
+      "processed_at": "2026-09-09T12:58:45.782Z",
+      "output_path": "03-知识/论文笔记/On Next-Gen Transformer- Loops Are Not What You Need.md"
+    },
+    {
+      "id": "reading_c8e885e43da0",
+      "kind": "blog",
+      "title": "GPT-6 Astra, Looped Transformers, and Hidden Reasoning",
+      "source_path": "01-收件箱/网页剪藏/GPT-6 Astra, Looped Transformers, and Hidden Reasoning.md",
+      "url": null,
+      "tags": [
+        "blog"
+      ],
+      "status": "processed",
+      "added_at": "2026-09-09T12:57:58.914Z",
+      "processed_at": "2026-09-09T12:58:45.782Z",
+      "output_path": "03-知识/论文笔记/GPT-6 Astra, Looped Transformers, and Hidden Reasoning.md"
+    },
+    {
+      "id": "reading_3425000c9fdd",
+      "kind": "blog",
+      "title": "Discovery of a new OpenAI agent message board",
+      "source_path": "01-收件箱/网页剪藏/Discovery of a new OpenAI agent message board.md",
+      "url": null,
+      "tags": [
+        "blog"
+      ],
+      "status": "processed",
+      "added_at": "2026-09-12T05:41:47.723Z",
+      "processed_at": "2026-09-16T18:09:28+08:00",
+      "output_path": "03-知识/论文笔记/Discovery of a new OpenAI agent message board.md"
+    },
+    {
+      "id": "reading_ded390362558",
+      "kind": "blog",
+      "title": "Getting started - Awesome BO",
+      "source_path": "01-收件箱/网页剪藏/Getting started - Awesome BO.md",
+      "url": null,
+      "tags": [
+        "blog"
+      ],
+      "status": "processed",
+      "added_at": "2026-09-12T05:41:47.723Z",
+      "processed_at": "2026-09-16T18:09:28+08:00",
+      "output_path": "03-知识/论文笔记/Getting started - Awesome BO.md"
+    },
+    {
+      "id": "reading_ce5161a2a6ec",
+      "kind": "blog",
+      "title": "Shallow Intent: Why People Don’t Like AI Content, and How to Make It Great",
+      "source_path": "01-收件箱/网页剪藏/Shallow Intent Why People Don’t Like AI Content, and How to Make It Great.md",
+      "url": null,
+      "tags": [
+        "blog"
+      ],
+      "status": "processed",
+      "added_at": "2026-09-12T05:41:47.723Z",
+      "processed_at": "2026-09-16T18:09:28+08:00",
+      "output_path": "03-知识/论文笔记/Shallow Intent Why People Don’t Like AI Content, and How to Make It Great.md"
+    },
+    {
+      "id": "reading_a830554a8f15",
+      "kind": "blog",
+      "title": "Speculative Programmatic Tool Calling",
+      "source_path": "01-收件箱/网页剪藏/Speculative Programmatic Tool Calling.md",
+      "url": null,
+      "tags": [
+        "blog"
+      ],
+      "status": "processed",
+      "added_at": "2026-09-12T05:41:47.723Z",
+      "processed_at": "2026-09-16T18:09:28+08:00",
+      "output_path": "03-知识/论文笔记/Speculative Programmatic Tool Calling.md"
+    },
+    {
+      "id": "reading_7029cd5ba396",
+      "kind": "blog",
+      "title": "The Architecture of Long-Horizon Agents",
+      "source_path": "01-收件箱/网页剪藏/The Architecture of Long-Horizon Agents.md",
+      "url": null,
+      "tags": [
+        "blog"
+      ],
+      "status": "processed",
+      "added_at": "2026-09-12T05:41:47.723Z",
+      "processed_at": "2026-09-16T18:09:28+08:00",
+      "output_path": "03-知识/论文笔记/The Architecture of Long-Horizon Agents.md"
+    },
+    {
+      "id": "reading_b4092b3c2b6a",
+      "kind": "paper",
+      "title": "3D Diffusion Policy",
+      "source_path": "01-收件箱/网页剪藏/3D Diffusion Policy.md",
+      "url": null,
+      "tags": [
+        "paper"
+      ],
+      "status": "processed",
+      "added_at": "2026-09-16T06:24:01.107Z",
+      "processed_at": "2026-09-16T18:09:28+08:00",
+      "output_path": "03-知识/论文笔记/3D Diffusion Policy.md"
+    },
+    {
+      "id": "reading_9255b1cafe4b",
+      "kind": "paper",
+      "title": "Atria Dawn: The Dawn of Agentic SuperintelligenceOn the Evolving Roles of Human–AI Collaboration",
+      "source_path": "01-收件箱/网页剪藏/Atria Dawn The Dawn of Agentic SuperintelligenceOn the Evolving Roles of Human–AI Collaboration.md",
+      "url": null,
+      "tags": [
+        "paper"
+      ],
+      "status": "processed",
+      "added_at": "2026-09-16T06:24:01.107Z",
+      "processed_at": "2026-09-16T18:09:28+08:00",
+      "output_path": "03-知识/论文笔记/Atria Dawn The Dawn of Agentic SuperintelligenceOn the Evolving Roles of Human–AI Collaboration.md"
+    },
+    {
+      "id": "reading_aec68ea446a2",
+      "kind": "paper",
+      "title": "Breaking the Vision–Action Shortcut: Latent Interface Training for Generalizable Robotics Foundation Models",
+      "source_path": "01-收件箱/网页剪藏/Breaking the Vision–Action Shortcut Latent Interface Training for Generalizable Robotics Foundation Models.md",
+      "url": null,
+      "tags": [
+        "paper"
+      ],
+      "status": "processed",
+      "added_at": "2026-09-16T06:24:01.107Z",
+      "processed_at": "2026-09-16T18:09:28+08:00",
+      "output_path": "03-知识/论文笔记/Breaking the Vision–Action Shortcut Latent Interface Training for Generalizable Robotics Foundation Models.md"
+    },
+    {
+      "id": "reading_cbbdf2bdc81f",
+      "kind": "paper",
+      "title": "CAP: Continuously Adaptive Perception-Blind Humanoid Locomotion via Learned Denoising",
+      "source_path": "01-收件箱/网页剪藏/CAP Continuously Adaptive Perception-Blind Humanoid Locomotion via Learned Denoising.md",
+      "url": null,
+      "tags": [
+        "paper"
+      ],
+      "status": "processed",
+      "added_at": "2026-09-16T06:24:01.107Z",
+      "processed_at": "2026-09-16T18:09:28+08:00",
+      "output_path": "03-知识/论文笔记/CAP Continuously Adaptive Perception-Blind Humanoid Locomotion via Learned Denoising.md"
+    },
+    {
+      "id": "reading_3ab66adea0e0",
+      "kind": "paper",
+      "title": "Dream-RSI: Recursive Self-Improvement through Evolving Worlds",
+      "source_path": "01-收件箱/网页剪藏/Dream-RSI Recursive Self-Improvement through Evolving Worlds.md",
+      "url": null,
+      "tags": [
+        "paper"
+      ],
+      "status": "processed",
+      "added_at": "2026-09-16T06:24:01.107Z",
+      "processed_at": "2026-09-16T18:09:28+08:00",
+      "output_path": "03-知识/论文笔记/Dream-RSI Recursive Self-Improvement through Evolving Worlds.md"
+    },
+    {
+      "id": "reading_321adc54b64b",
+      "kind": "paper",
+      "title": "GHOST: Hierarchical Sub-Goal Policies for Generalizing Robot Manipulation",
+      "source_path": "01-收件箱/网页剪藏/GHOST Hierarchical Sub-Goal Policies for Generalizing Robot Manipulation.md",
+      "url": null,
+      "tags": [
+        "paper"
+      ],
+      "status": "processed",
+      "added_at": "2026-09-16T06:24:01.107Z",
+      "processed_at": "2026-09-16T18:09:28+08:00",
+      "output_path": "03-知识/论文笔记/GHOST Hierarchical Sub-Goal Policies for Generalizing Robot Manipulation.md"
+    },
+    {
+      "id": "reading_cce0ad11c289",
+      "kind": "paper",
+      "title": "Improving Imitation Learning Efficiency for Manipulation through Geometric Prior Pretraining",
+      "source_path": "01-收件箱/网页剪藏/Improving Imitation Learning Efficiency for Manipulation through Geometric Prior Pretraining.md",
+      "url": null,
+      "tags": [
+        "paper"
+      ],
+      "status": "processed",
+      "added_at": "2026-09-16T06:24:01.107Z",
+      "processed_at": "2026-09-16T18:09:28+08:00",
+      "output_path": "03-知识/论文笔记/Improving Imitation Learning Efficiency for Manipulation through Geometric Prior Pretraining.md"
+    },
+    {
+      "id": "reading_d7240e73af7b",
+      "kind": "paper",
+      "title": "LUCID: Learning Embodiment-Agnostic Intent Models from Unstructured Human Videos for Scalable Dexterous Robot Skill Acquisition",
+      "source_path": "01-收件箱/网页剪藏/LUCID Learning Embodiment-Agnostic Intent Models from Unstructured Human Videos for Scalable Dexterous Robot Skill Acquisition.md",
+      "url": null,
+      "tags": [
+        "paper"
+      ],
+      "status": "processed",
+      "added_at": "2026-09-16T06:24:01.107Z",
+      "processed_at": "2026-09-16T18:09:28+08:00",
+      "output_path": "03-知识/论文笔记/LUCID Learning Embodiment-Agnostic Intent Models from Unstructured Human Videos for Scalable Dexterous Robot Skill Acquisition.md"
+    },
+    {
+      "id": "reading_d0e465f33dc9",
+      "kind": "paper",
+      "title": "Learning Compositional Behaviors from Demonstration and Language",
+      "source_path": "01-收件箱/网页剪藏/Learning Compositional Behaviors from Demonstration and Language.md",
+      "url": null,
+      "tags": [
+        "paper"
+      ],
+      "status": "processed",
+      "added_at": "2026-09-16T06:24:01.107Z",
+      "processed_at": "2026-09-16T18:09:28+08:00",
+      "output_path": "03-知识/论文笔记/Learning Compositional Behaviors from Demonstration and Language.md"
+    },
+    {
+      "id": "reading_01135f05d4be",
+      "kind": "paper",
+      "title": "Learning Neuro-Symbolic Skills for Bilevel Planning",
+      "source_path": "01-收件箱/网页剪藏/Learning Neuro-Symbolic Skills for Bilevel Planning.md",
+      "url": null,
+      "tags": [
+        "paper"
+      ],
+      "status": "processed",
+      "added_at": "2026-09-16T06:24:01.107Z",
+      "processed_at": "2026-09-16T18:09:28+08:00",
+      "output_path": "03-知识/论文笔记/Learning Neuro-Symbolic Skills for Bilevel Planning.md"
+    },
+    {
+      "id": "reading_7b51ba12a461",
+      "kind": "paper",
+      "title": "Learning Reusable Manipulation Strategies",
+      "source_path": "01-收件箱/网页剪藏/Learning Reusable Manipulation Strategies.md",
+      "url": null,
+      "tags": [
+        "paper"
+      ],
+      "status": "processed",
+      "added_at": "2026-09-16T06:24:01.107Z",
+      "processed_at": "2026-09-16T18:09:28+08:00",
+      "output_path": "03-知识/论文笔记/Learning Reusable Manipulation Strategies.md"
+    },
+    {
+      "id": "reading_991cbf6d311a",
+      "kind": "paper",
+      "title": "Point4D: Long-range 4D Motion Reconstruction",
+      "source_path": "01-收件箱/网页剪藏/Point4D Long-range 4D Motion Reconstruction.md",
+      "url": null,
+      "tags": [
+        "paper"
+      ],
+      "status": "processed",
+      "added_at": "2026-09-16T06:24:01.107Z",
+      "processed_at": "2026-09-16T18:09:28+08:00",
+      "output_path": "03-知识/论文笔记/Point4D Long-range 4D Motion Reconstruction.md"
+    },
+    {
+      "id": "reading_fbb011eb2bda",
+      "kind": "blog",
+      "title": "Reward AI says OM-1 learns robot skills directly from human demonstrations",
+      "source_path": "01-收件箱/网页剪藏/Reward AI says OM-1 learns robot skills directly from human demonstrations.md",
+      "url": null,
+      "tags": [
+        "blog"
+      ],
+      "status": "processed",
+      "added_at": "2026-09-16T06:24:01.107Z",
+      "processed_at": "2026-09-16T18:09:28+08:00",
+      "output_path": "03-知识/论文笔记/Reward AI says OM-1 learns robot skills directly from human demonstrations.md"
+    },
+    {
+      "id": "reading_73a93f99ac56",
+      "kind": "paper",
+      "title": "Show-Harness: Just a VLM Agent Can Play Robots",
+      "source_path": "01-收件箱/网页剪藏/Show-Harness Just a VLM Agent Can Play Robots.md",
+      "url": null,
+      "tags": [
+        "paper"
+      ],
+      "status": "processed",
+      "added_at": "2026-09-16T06:24:01.107Z",
+      "processed_at": "2026-09-16T18:09:28+08:00",
+      "output_path": "03-知识/论文笔记/Show-Harness Just a VLM Agent Can Play Robots.md"
+    },
+    {
+      "id": "reading_17d0410105a8",
+      "kind": "paper",
+      "title": "World in World: Explore the World with World Models",
+      "source_path": "01-收件箱/网页剪藏/World in World Explore the World with World Models.md",
+      "url": null,
+      "tags": [
+        "paper"
+      ],
+      "status": "processed",
+      "added_at": "2026-09-16T06:24:01.107Z",
+      "processed_at": "2026-09-16T18:09:28+08:00",
+      "output_path": "03-知识/论文笔记/World in World Explore the World with World Models.md"
+    },
+    {
+      "id": "reading_a322ab7e479a",
+      "kind": "blog",
+      "title": "[Blog 1] ModularRSI: Toward Generalizable Harness RSI",
+      "source_path": "01-收件箱/网页剪藏/Blog 1 ModularRSI Toward Generalizable Harness RSI.md",
+      "url": null,
+      "tags": [
+        "blog"
+      ],
+      "status": "processed",
+      "added_at": "2026-09-17T08:13:12.548Z",
+      "processed_at": "2026-09-18T03:31:28.866Z",
+      "output_path": "03-知识/论文笔记/[Blog 1] ModularRSI- Toward Generalizable Harness RSI.md"
+    },
+    {
+      "id": "reading_f8c02c29c5fe",
+      "kind": "blog",
+      "title": "Foundation Model or Not?",
+      "source_path": "01-收件箱/网页剪藏/Foundation Model or Not?.md",
+      "url": null,
+      "tags": [
+        "blog"
+      ],
+      "status": "processed",
+      "added_at": "2026-09-17T08:13:12.548Z",
+      "processed_at": "2026-09-18T03:24:04.088Z",
+      "output_path": "03-知识/论文笔记/Foundation Model or Not-.md"
+    },
+    {
+      "id": "reading_e5b2aae77442",
+      "kind": "paper",
+      "title": "LAION Big Video Dataset",
+      "source_path": "01-收件箱/网页剪藏/LAION Big Video Dataset.md",
+      "url": null,
+      "tags": [
+        "paper"
+      ],
+      "status": "processed",
+      "added_at": "2026-09-17T08:13:12.548Z",
+      "processed_at": "2026-09-18T03:24:04.088Z",
+      "output_path": "03-知识/论文笔记/LAION Big Video Dataset.md"
+    },
+    {
+      "id": "reading_2f20f597b5fb",
+      "kind": "blog",
+      "title": "Sparse Linear Attention: 当稀疏遇上线性注意力（2）",
+      "source_path": "01-收件箱/网页剪藏/Sparse Linear Attention 当稀疏遇上线性注意力（2）.md",
+      "url": null,
+      "tags": [
+        "blog"
+      ],
+      "status": "processed",
+      "added_at": "2026-09-17T08:13:12.548Z",
+      "processed_at": "2026-09-18T03:24:04.088Z",
+      "output_path": "03-知识/论文笔记/Sparse Linear Attention- 当稀疏遇上线性注意力（2）.md"
+    },
+    {
+      "id": "reading_21f1d852f5eb",
+      "kind": "blog",
+      "title": "WHALE: A Simple Recipe for Joint Harness-Weight Optimization",
+      "source_path": "01-收件箱/网页剪藏/WHALE A Simple Recipe for Joint Harness-Weight Optimization.md",
+      "url": null,
+      "tags": [
+        "blog"
+      ],
+      "status": "processed",
+      "added_at": "2026-09-17T08:13:12.548Z",
+      "processed_at": "2026-09-18T03:24:04.088Z",
+      "output_path": "03-知识/论文笔记/WHALE- A Simple Recipe for Joint Harness-Weight Optimization.md"
+    },
+    {
+      "id": "reading_67847f16d52c",
+      "kind": "paper",
+      "title": "Helix 2.5: Zero-Shot 30-Home Generalization",
+      "source_path": "01-收件箱/网页剪藏/Helix 2.5 Zero-Shot 30-Home Generalization.md",
+      "url": null,
+      "tags": [
+        "paper"
+      ],
+      "status": "processed",
+      "added_at": "2026-09-18T01:56:32.157Z",
+      "processed_at": "2026-09-18T03:24:04.088Z",
+      "output_path": "03-知识/论文笔记/Helix 2.5- Zero-Shot 30-Home Generalization.md"
+    },
+    {
+      "id": "reading_eba692987679",
+      "kind": "blog",
+      "title": "Self-Improving Agents: Learning How to Work",
+      "source_path": "01-收件箱/网页剪藏/Self-Improving Agents Learning How to Work.md",
+      "url": null,
+      "tags": [
+        "blog"
+      ],
+      "status": "processed",
+      "added_at": "2026-09-18T01:56:32.157Z",
+      "processed_at": "2026-09-18T03:24:04.088Z",
+      "output_path": "03-知识/论文笔记/Self-Improving Agents- Learning How to Work.md"
+    },
+    {
+      "id": "reading_a53bb52e6e6b",
+      "kind": "paper",
+      "title": "Towards a Statistical Understanding of Mixture-of-Experts",
+      "source_path": "01-收件箱/网页剪藏/Towards a Statistical Understanding of Mixture-of-Experts.md",
+      "url": null,
+      "tags": [
+        "paper"
+      ],
+      "status": "processed",
+      "added_at": "2026-09-18T03:28:50.836Z",
+      "processed_at": "2026-09-21T05:18:26.443Z",
+      "output_path": "03-知识/论文笔记/Towards a Statistical Understanding of Mixture-of-Experts.md"
+    },
+    {
+      "id": "reading_74c4b9d5958b",
+      "kind": "blog",
+      "title": "My Notes from ETH Zürich’s Robot Learning Course",
+      "source_path": "01-收件箱/网页剪藏/My Notes from ETH Zürich’s Robot Learning Course.md",
+      "url": null,
+      "tags": [
+        "blog"
+      ],
+      "status": "processed",
+      "added_at": "2026-09-21T05:14:51.297Z",
+      "processed_at": "2026-09-21T05:18:26.443Z",
+      "output_path": "03-知识/论文笔记/My Notes from ETH Zürich’s Robot Learning Course.md"
+    },
+    {
+      "id": "reading_452eb41d7bdb",
+      "kind": "paper",
+      "title": "Random Attention",
+      "source_path": "01-收件箱/网页剪藏/Random Attention.md",
+      "url": null,
+      "tags": [
+        "paper"
+      ],
+      "status": "processed",
+      "added_at": "2026-09-21T05:14:51.297Z",
+      "processed_at": "2026-09-21T05:18:26.443Z",
+      "output_path": "03-知识/论文笔记/Random Attention.md"
     }
   ],
   "candidates": [],

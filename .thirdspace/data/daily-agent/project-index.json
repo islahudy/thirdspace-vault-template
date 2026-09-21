@@ -1,12 +1,22 @@
 {
   "version": "1.0",
-  "revision": 1,
-  "updated_at": "2026-08-28T08:20:02.492Z",
+  "revision": 2,
+  "updated_at": "2026-09-21T05:28:52.057Z",
   "projects": [
     {
       "id": "b1k-2026-challenge",
       "name": "b1k-2026-challenge",
       "path": "04-项目/202608271529_b1k-2026-challenge",
+      "status": "active",
+      "stage": "active",
+      "repo_mappings": [],
+      "last_activity_at": null,
+      "last_reviewed_at": null
+    },
+    {
+      "id": "brain-cerebellum-coupling",
+      "name": "brain-cerebellum-coupling",
+      "path": "04-项目/202609211328_brain-cerebellum-coupling",
       "status": "active",
       "stage": "active",
       "repo_mappings": [],
